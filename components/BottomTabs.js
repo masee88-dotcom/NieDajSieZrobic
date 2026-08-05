@@ -1,47 +1,69 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  Text,
+  StyleSheet
+} from 'react-native';
 
-export default function BottomTabs({ activeTab, onChangeTab }) {
+export default function BottomTabs({
+  activeTab,
+  onChangeTab
+}) {
+
+  const tabs = [
+    { id: 'mapa', label: '🗺️ Mapa' },
+    { id: 'trasa', label: '🧭 Trasa' },
+    { id: 'moje', label: '⭐ Moje' },
+    { id: 'ustawienia', label: '⚙️ Ustawienia' }
+  ];
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.button} onPress={() => onChangeTab('mapa')}>
-        <Text style={[styles.text, activeTab === 'mapa' && styles.active]}>🗺️ Mapa</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={() => onChangeTab('trasa')}>
-        <Text style={[styles.text, activeTab === 'trasa' && styles.active]}>🛣️ Trasa</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={() => onChangeTab('moje')}>
-        <Text style={[styles.text, activeTab === 'moje' && styles.active]}>⭐ Moje</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={() => onChangeTab('ustawienia')}>
-        <Text style={[styles.text, activeTab === 'ustawienia' && styles.active]}>⚙️ Ustaw.</Text>
-      </TouchableOpacity>
+      {tabs.map(tab => (
+        <TouchableOpacity
+          key={tab.id}
+          style={styles.button}
+          onPress={() => onChangeTab(tab.id)}
+        >
+          <Text
+            style={[
+              styles.text,
+              activeTab === tab.id && styles.active
+            ]}
+          >
+            {tab.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    height: 60,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    backgroundColor: '#fff',
+
+  container:{
+    flexDirection:'row',
+    height:60,
+    borderTopWidth:1,
+    borderTopColor:'#ddd',
+    backgroundColor:'#fff'
   },
-  button: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+
+  button:{
+    flex:1,
+    justifyContent:'center',
+    alignItems:'center'
   },
-  text: {
-    fontSize: 14,
-    color: '#666',
+
+  text:{
+    color:'#666',
+    fontSize:14
   },
-  active: {
-    color: '#2196F3',
-    fontWeight: 'bold',
-  },
+
+  active:{
+    color:'#1976D2',
+    fontWeight:'bold'
+  }
+
 });

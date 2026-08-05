@@ -1,23 +1,30 @@
-export async function searchPlace(query) {
-  if (!query.trim()) return null;
+export async function searchLocation(query) {
+  if (!query || query.trim() === '') return null;
 
-  const response = await fetch(
-    "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" +
-      encodeURIComponent(query),
-    {
-      headers: {
-        "User-Agent": "CrossNav"
+  try {
+    const response = await fetch(
+      'https://nominatim.openstreetmap.org/search?format=json&q=' +
+      encodeURIComponent(query) +
+      '&limit=1',
+      {
+        headers: {
+          'User-Agent': 'CrossNav/1.0'
+        }
       }
-    }
-  );
+    );
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (!data.length) return null;
+    if (!data.length) return null;
 
-  return {
-    latitude: parseFloat(data[0].lat),
-    longitude: parseFloat(data[0].lon),
-    name: data[0].display_name
-  };
+    return {
+      latitude: parseFloat(data[0].lat),
+      longitude: parseFloat(data[0].lon),
+      name: data[0].display_name
+    };
+
+  } catch (err) {
+    console.log(err);
+    return null;
+  }
 }

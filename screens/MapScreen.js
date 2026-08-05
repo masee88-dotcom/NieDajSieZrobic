@@ -1,18 +1,3 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-
-export default function MapScreen() {
-  return (
-    <View style={{
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#f2f2f2'
-    }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>
-        CrossNav
-      </Text>
-
 import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -32,7 +17,10 @@ export default function MapScreen() {
         return;
       }
 
-      const pos = await Location.getCurrentPositionAsync({});
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High
+      });
+
       setLocation(pos.coords);
     })();
   }, []);
@@ -40,9 +28,9 @@ export default function MapScreen() {
   if (error) {
     return (
       <View style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center'
+        flex:1,
+        justifyContent:'center',
+        alignItems:'center'
       }}>
         <Text>{error}</Text>
       </View>
@@ -52,9 +40,9 @@ export default function MapScreen() {
   if (!location) {
     return (
       <View style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center'
+        flex:1,
+        justifyContent:'center',
+        alignItems:'center'
       }}>
         <Text>Pobieranie GPS...</Text>
       </View>
@@ -70,12 +58,7 @@ export default function MapScreen() {
           location.longitude
         )
       }}
-      style={{ flex: 1 }}
+      style={{ flex:1 }}
     />
-  );
-}      <Text style={{ marginTop: 15 }}>
-        MapScreen działa ✅
-      </Text>
-    </View>
   );
 }

@@ -1,27 +1,31 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   TextInput,
   TouchableOpacity,
   Text,
-  StyleSheet,
+  StyleSheet
 } from 'react-native';
 
-export default function SearchBar({ onSearch }) {
-  const [text, setText] = useState('');
-
+export default function SearchBar({
+  value,
+  onChangeText,
+  onSearch
+}) {
   return (
     <View style={styles.container}>
       <TextInput
         style={styles.input}
         placeholder="Dokąd jedziemy?"
-        value={text}
-        onChangeText={setText}
+        value={value}
+        onChangeText={onChangeText}
+        returnKeyType="search"
+        onSubmitEditing={onSearch}
       />
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => onSearch(text)}
+        onPress={onSearch}
       >
         <Text style={styles.buttonText}>Szukaj</Text>
       </TouchableOpacity>
@@ -30,28 +34,30 @@ export default function SearchBar({ onSearch }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    padding: 10,
-    backgroundColor: '#fff',
+  container:{
+    flexDirection:'row',
+    backgroundColor:'#fff',
+    padding:10,
+    elevation:5
   },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    marginRight: 8,
-    height: 45,
+
+  input:{
+    flex:1,
+    backgroundColor:'#f2f2f2',
+    borderRadius:10,
+    paddingHorizontal:12,
+    marginRight:8
   },
-  button: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 15,
-    justifyContent: 'center',
-    borderRadius: 10,
+
+  button:{
+    backgroundColor:'#1976D2',
+    borderRadius:10,
+    justifyContent:'center',
+    paddingHorizontal:15
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
+
+  buttonText:{
+    color:'#fff',
+    fontWeight:'bold'
+  }
 });
