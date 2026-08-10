@@ -1,6 +1,19 @@
-export function getMapHtml(latitude, longitude) {
-return `
+export function getMapHtml(
+  latitude,
+  longitude,
+  routeGeometry = []
+) {
+
+  const route = JSON.stringify(
+    routeGeometry.map(point => [
+      point[1],
+      point[0]
+    ])
+  );
+
+  return `
 <!DOCTYPE html>
+
 <html>
 
 <head>
@@ -8,18 +21,21 @@ return `
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0">
 
-<link rel="stylesheet"
-href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link
+rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script
+src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
 
 <style>
 
 html,body,#map{
+height:100%;
 margin:0;
 padding:0;
-height:100%;
-width:100%;
 }
 
 .leaflet-control-attribution{
@@ -36,34 +52,53 @@ display:none;
 
 <script>
 
-const map=L.map('map').setView(
-[${latitude},${longitude}],16
+const startLat = ${latitude};
+const startLon = ${longitude};
+
+const route = ${route};
+
+const map = L.map('map').setView(
+  [startLat,startLon],
+  15
 );
 
 L.tileLayer(
-'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-{
-maxZoom:19
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {
+    maxZoom:19
+  }
+).addTo(map);
+
+const me = L.marker(
+  [startLat,startLon]
+).addTo(map);
+
+me.bindPopup('📍 Jesteś tutaj');
+
+if(route.length > 0){
+
+  const line = L.polyline(
+    route,
+    {
+      color:'#1976D2',
+      weight:6,
+      opacity:0.85
+    }
+  ).addTo(map);
+
+  const bounds = line.getBounds();
+
+  map.fitBounds(bounds,{
+    padding:[40,40]
+  });
+
+  const destination = route[route.length - 1];
+
+  L.marker(destination)
+    .addTo(map)
+    .bindPopup('🏁 Cel')
+    .openPopup();
 }
-).addTo(map);
-
-const marker=L.marker(
-[${latitude},${longitude}]
-).addTo(map);
-
-marker.bindPopup("📍 Jesteś tutaj");
-
-map.locate({
-setView:false,
-watch:true,
-enableHighAccuracy:true
-});
-
-map.on('locationfound',function(e){
-
-marker.setLatLng(e.latlng);
-
-});
 
 </script>
 

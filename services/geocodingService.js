@@ -1,30 +1,39 @@
-export async function searchLocation(query) {
-  if (!query || query.trim() === '') return null;
+export async function searchPlaces(query) {
+  if (!query || query.trim().length < 3) {
+    return [];
+  }
 
   try {
-    const response = await fetch(
-      'https://nominatim.openstreetmap.org/search?format=json&q=' +
-      encodeURIComponent(query) +
-      '&limit=1',
-      {
-        headers: {
-          'User-Agent': 'CrossNav/1.0'
-        }
+    const url =
+      'https://nominatim.openstreetmap.org/search' +
+      '?format=jsonv2' +
+      '&limit=5' +
+      '&countrycodes=pl' +
+      '&q=' +
+      encodeURIComponent(query.trim());
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'CrossNav/0.4'
       }
-    );
+    });
+
+    if (!response.ok) {
+      throw new Error('Błąd wyszukiwarki');
+    }
 
     const data = await response.json();
 
-    if (!data.length) return null;
+    return data.map(item => ({
+      id: item.place_id,
+      name: item.display_name,
+      latitude: Number(item.lat),
+      longitude: Number(item.lon)
+    }));
 
-    return {
-      latitude: parseFloat(data[0].lat),
-      longitude: parseFloat(data[0].lon),
-      name: data[0].display_name
-    };
-
-  } catch (err) {
-    console.log(err);
-    return null;
+  } catch (error) {
+    console.log('Geocoding error:', error);
+    return [];
   }
 }
