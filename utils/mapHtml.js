@@ -13,7 +13,6 @@ export function getMapHtml(
 
   return `
 <!DOCTYPE html>
-
 <html>
 
 <head>
@@ -40,6 +39,15 @@ padding:0;
 
 .leaflet-control-attribution{
 display:none;
+}
+
+.user-marker{
+width:22px;
+height:22px;
+border-radius:50%;
+background:#1976D2;
+border:4px solid white;
+box-shadow:0 0 0 2px #1976D2;
 }
 
 </style>
@@ -69,11 +77,32 @@ L.tileLayer(
   }
 ).addTo(map);
 
-const me = L.marker(
-  [startLat,startLon]
+
+// ===============================
+// TWOJA POZYCJA
+// ===============================
+
+const userIcon = L.divIcon({
+  className: '',
+  html: '<div class="user-marker"></div>',
+  iconSize: [30,30],
+  iconAnchor: [15,15]
+});
+
+let userMarker = L.marker(
+  [startLat,startLon],
+  {
+    icon:userIcon,
+    zIndexOffset:1000
+  }
 ).addTo(map);
 
-me.bindPopup('📍 Jesteś tutaj');
+userMarker.bindPopup('📍 Jesteś tutaj');
+
+
+// ===============================
+// TRASA
+// ===============================
 
 if(route.length > 0){
 
@@ -92,18 +121,48 @@ if(route.length > 0){
     padding:[40,40]
   });
 
-  const destination = route[route.length - 1];
+  const destination =
+    route[route.length - 1];
 
   L.marker(destination)
     .addTo(map)
-    .bindPopup('🏁 Cel')
-    .openPopup();
+    .bindPopup('🏁 Cel');
+
 }
+
+
+// ===============================
+// AKTUALIZACJA POZYCJI
+// ===============================
+
+window.updateUserLocation = function(
+  latitude,
+  longitude,
+  follow
+){
+
+  userMarker.setLatLng([
+    latitude,
+    longitude
+  ]);
+
+  if(follow){
+
+    map.setView(
+      [latitude,longitude],
+      map.getZoom(),
+      {
+        animate:true
+      }
+    );
+
+  }
+
+};
 
 </script>
 
 </body>
-
 </html>
 `;
 }

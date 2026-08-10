@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useRef,
   useState
 } from 'react';
 
@@ -7,7 +8,8 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator
+  ActivityIndicator,
+  TouchableOpacity
 } from 'react-native';
 
 import {
@@ -30,23 +32,42 @@ import {
   getMapHtml
 } from '../utils/mapHtml';
 
+
 export default function MapScreen() {
 
-  const [location,setLocation] = useState(null);
+  const webViewRef = useRef(null);
 
-  const [error,setError] = useState('');
+  const [location,setLocation] =
+    useState(null);
 
-  const [results,setResults] = useState([]);
+  const [error,setError] =
+    useState('');
 
-  const [route,setRoute] = useState([]);
+  const [results,setResults] =
+    useState([]);
 
-  const [routeInfo,setRouteInfo] = useState(null);
+  const [route,setRoute] =
+    useState([]);
 
-  const [loadingRoute,setLoadingRoute] = useState(false);
+  const [routeInfo,setRouteInfo] =
+    useState(null);
+
+  const [loadingRoute,setLoadingRoute] =
+    useState(false);
+
+  const [followUser,setFollowUser] =
+    useState(true);
+
+
+  // =====================================
+  // GPS
+  // =====================================
 
   useEffect(() => {
 
-    async function loadLocation(){
+    let subscription;
+
+    async function startGPS(){
 
       try{
 
@@ -62,44 +83,113 @@ export default function MapScreen() {
           return;
         }
 
+
         const position =
           await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.High
           });
 
+
         setLocation(position.coords);
+
+
+        subscription =
+          await Location.watchPositionAsync(
+            {
+              accuracy:
+                Location.Accuracy.High,
+
+              timeInterval: 3000,
+
+              distanceInterval: 5
+            },
+
+            newPosition => {
+
+              const coords =
+                newPosition.coords;
+
+              setLocation(coords);
+
+
+              // Aktualizujemy pozycję
+              // bez przeładowywania mapy
+
+              if(webViewRef.current){
+
+                const js = `
+                  if(window.updateUserLocation){
+                    window.updateUserLocation(
+                      ${coords.latitude},
+                      ${coords.longitude},
+                      ${followUser}
+                    );
+                  }
+                  true;
+                `;
+
+                webViewRef.current.injectJavaScript(js);
+              }
+
+            }
+          );
 
       }catch(e){
 
         console.log(e);
 
         setError(
-          'Nie udało się pobrać lokalizacji'
+          'Nie udało się uruchomić GPS'
         );
 
       }
 
     }
 
-    loadLocation();
 
-  },[]);
+    startGPS();
+
+
+    return () => {
+
+      if(subscription){
+
+        subscription.remove();
+
+      }
+
+    };
+
+  }, [followUser]);
+
+
+  // =====================================
+  // WYSZUKIWANIE
+  // =====================================
 
   async function handleSearch(text){
 
-    if(!text || text.trim().length < 3){
+    if(!text ||
+       text.trim().length < 3){
 
       setResults([]);
 
       return;
     }
 
+
     const places =
       await searchPlaces(text);
+
 
     setResults(places);
 
   }
+
+
+  // =====================================
+  // WYBÓR CELU
+  // =====================================
 
   async function handleSelect(place){
 
@@ -110,7 +200,9 @@ export default function MapScreen() {
       return;
     }
 
+
     setLoadingRoute(true);
+
 
     try{
 
@@ -121,6 +213,7 @@ export default function MapScreen() {
           place.latitude,
           place.longitude
         );
+
 
       if(!result){
 
@@ -135,14 +228,28 @@ export default function MapScreen() {
         return;
       }
 
+
       setRoute(
         result.geometry
       );
 
+
       setRouteInfo({
-        distance: result.distance,
-        duration: result.duration
+
+        distance:
+          result.distance,
+
+        duration:
+          result.duration
+
       });
+
+
+      // Po wybraniu celu
+      // włączamy śledzenie
+
+      setFollowUser(true);
+
 
     }catch(e){
 
@@ -160,6 +267,47 @@ export default function MapScreen() {
 
   }
 
+
+  // =====================================
+  // PRZYCISK MOJA LOKALIZACJA
+  // =====================================
+
+  function centerOnUser(){
+
+    if(!location ||
+       !webViewRef.current){
+
+      return;
+    }
+
+
+    setFollowUser(true);
+
+
+    const js = `
+      if(window.updateUserLocation){
+
+        window.updateUserLocation(
+          ${location.latitude},
+          ${location.longitude},
+          true
+        );
+
+      }
+
+      true;
+    `;
+
+
+    webViewRef.current.injectJavaScript(js);
+
+  }
+
+
+  // =====================================
+  // EKRAN BŁĘDU
+  // =====================================
+
   if(error){
 
     return(
@@ -176,13 +324,20 @@ export default function MapScreen() {
 
   }
 
+
+  // =====================================
+  // CZEKAMY NA GPS
+  // =====================================
+
   if(!location){
 
     return(
 
       <View style={styles.center}>
 
-        <ActivityIndicator size="large"/>
+        <ActivityIndicator
+          size="large"
+        />
 
         <Text style={styles.loading}>
           Pobieranie GPS...
@@ -194,22 +349,40 @@ export default function MapScreen() {
 
   }
 
+
+  // =====================================
+  // INFORMACJE O TRASIE
+  // =====================================
+
   const distanceKm =
     routeInfo
       ? (routeInfo.distance / 1000).toFixed(1)
       : null;
 
+
   const durationMin =
     routeInfo
-      ? Math.round(routeInfo.duration / 60)
+      ? Math.round(
+          routeInfo.duration / 60
+        )
       : null;
+
+
+  // =====================================
+  // WIDOK
+  // =====================================
 
   return(
 
     <View style={styles.container}>
 
+
       <WebView
+
+        ref={webViewRef}
+
         originWhitelist={['*']}
+
         source={{
           html:getMapHtml(
             location.latitude,
@@ -217,14 +390,76 @@ export default function MapScreen() {
             route
           )
         }}
+
         style={styles.map}
+
       />
 
+
+      {/* WYSZUKIWARKA */}
+
       <SearchBar
+
         results={results}
+
         onSearch={handleSearch}
+
         onSelect={handleSelect}
+
       />
+
+
+      {/* MOJA LOKALIZACJA */}
+
+      <TouchableOpacity
+
+        style={styles.locationButton}
+
+        onPress={centerOnUser}
+
+      >
+
+        <Text style={styles.locationIcon}>
+          📍
+        </Text>
+
+      </TouchableOpacity>
+
+
+      {/* INFORMACJA O ŚLEDZENIU */}
+
+      <TouchableOpacity
+
+        style={[
+          styles.followButton,
+
+          followUser
+            ? styles.followActive
+            : styles.followInactive
+        ]}
+
+        onPress={() => {
+
+          setFollowUser(
+            !followUser
+          );
+
+        }}
+
+      >
+
+        <Text style={styles.followText}>
+
+          {followUser
+            ? '🧭 Śledzenie GPS'
+            : '⏸️ Śledzenie wyłączone'}
+
+        </Text>
+
+      </TouchableOpacity>
+
+
+      {/* WYZNACZANIE TRASY */}
 
       {loadingRoute && (
 
@@ -234,7 +469,9 @@ export default function MapScreen() {
             color="#fff"
           />
 
-          <Text style={styles.routeLoadingText}>
+          <Text
+            style={styles.routeLoadingText}
+          >
             Wyznaczanie trasy...
           </Text>
 
@@ -242,7 +479,11 @@ export default function MapScreen() {
 
       )}
 
-      {routeInfo && !loadingRoute && (
+
+      {/* INFORMACJE O TRASIE */}
+
+      {routeInfo &&
+       !loadingRoute && (
 
         <View style={styles.info}>
 
@@ -250,9 +491,11 @@ export default function MapScreen() {
             🛣️ Trasa
           </Text>
 
+
           <Text style={styles.infoText}>
             📏 {distanceKm} km
           </Text>
+
 
           <Text style={styles.infoText}>
             ⏱️ około {durationMin} min
@@ -268,15 +511,22 @@ export default function MapScreen() {
 
 }
 
+
+// =====================================
+// STYLE
+// =====================================
+
 const styles = StyleSheet.create({
 
   container:{
     flex:1
   },
 
+
   map:{
     flex:1
   },
+
 
   center:{
     flex:1,
@@ -284,10 +534,12 @@ const styles = StyleSheet.create({
     alignItems:'center'
   },
 
+
   loading:{
     marginTop:12,
     fontSize:16
   },
+
 
   error:{
     color:'#d32f2f',
@@ -296,18 +548,97 @@ const styles = StyleSheet.create({
     padding:20
   },
 
-  routeLoading:{
+
+  locationButton:{
+
     position:'absolute',
+
+    right:12,
+
     top:75,
-    alignSelf:'center',
-    backgroundColor:'#1976D2',
-    paddingHorizontal:18,
-    paddingVertical:10,
-    borderRadius:20,
-    flexDirection:'row',
+
+    width:52,
+
+    height:52,
+
+    borderRadius:26,
+
+    backgroundColor:'#fff',
+
+    justifyContent:'center',
+
     alignItems:'center',
-    elevation:6
+
+    elevation:7
+
   },
+
+
+  locationIcon:{
+    fontSize:25
+  },
+
+
+  followButton:{
+
+    position:'absolute',
+
+    right:12,
+
+    top:135,
+
+    borderRadius:20,
+
+    paddingHorizontal:13,
+
+    paddingVertical:9,
+
+    elevation:5
+
+  },
+
+
+  followActive:{
+    backgroundColor:'#1976D2'
+  },
+
+
+  followInactive:{
+    backgroundColor:'#555'
+  },
+
+
+  followText:{
+    color:'#fff',
+    fontWeight:'bold',
+    fontSize:12
+  },
+
+
+  routeLoading:{
+
+    position:'absolute',
+
+    top:190,
+
+    alignSelf:'center',
+
+    backgroundColor:'#1976D2',
+
+    paddingHorizontal:18,
+
+    paddingVertical:10,
+
+    borderRadius:20,
+
+    flexDirection:'row',
+
+    alignItems:'center',
+
+    elevation:6
+
+  },
+
 
   routeLoadingText:{
     color:'#fff',
@@ -315,22 +646,34 @@ const styles = StyleSheet.create({
     fontWeight:'bold'
   },
 
+
   info:{
+
     position:'absolute',
+
     bottom:10,
+
     left:10,
+
     backgroundColor:'#fff',
+
     borderRadius:12,
+
     padding:14,
+
     elevation:7,
+
     minWidth:150
+
   },
+
 
   infoTitle:{
     fontSize:17,
     fontWeight:'bold',
     marginBottom:5
   },
+
 
   infoText:{
     fontSize:15,
