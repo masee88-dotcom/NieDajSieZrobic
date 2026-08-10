@@ -20,6 +20,8 @@ import * as Location from 'expo-location';
 
 import SearchBar from '../components/SearchBar';
 
+import RouteProfileMenu from '../components/RouteProfileMenu';
+
 import {
   searchPlaces
 } from '../services/geocodingService';
@@ -32,49 +34,56 @@ import {
   getMapHtml
 } from '../utils/mapHtml';
 
+import {
+  ROUTE_PROFILES,
+  DEFAULT_ROUTE_PROFILE
+} from '../utils/routeProfiles';
+
 
 export default function MapScreen() {
 
   const webViewRef = useRef(null);
 
-  const [location,setLocation] =
+  const [location, setLocation] =
     useState(null);
 
-  const [error,setError] =
+  const [error, setError] =
     useState('');
 
-  const [results,setResults] =
+  const [results, setResults] =
     useState([]);
 
-  const [route,setRoute] =
+  const [route, setRoute] =
     useState([]);
 
-  const [routeInfo,setRouteInfo] =
+  const [routeInfo, setRouteInfo] =
     useState(null);
 
-  const [loadingRoute,setLoadingRoute] =
+  const [loadingRoute, setLoadingRoute] =
     useState(false);
 
-  const [followUser,setFollowUser] =
+  const [followUser, setFollowUser] =
     useState(true);
 
+  const [profile, setProfile] =
+    useState(DEFAULT_ROUTE_PROFILE);
 
-  // =====================================
-  // GPS
-  // =====================================
+  const [showProfiles, setShowProfiles] =
+    useState(false);
+
 
   useEffect(() => {
 
     let subscription;
 
-    async function startGPS(){
+    async function startGPS() {
 
-      try{
+      try {
 
         const { status } =
           await Location.requestForegroundPermissionsAsync();
 
-        if(status !== 'granted'){
+        if (status !== 'granted') {
 
           setError(
             'Brak zgody na lokalizację'
@@ -83,24 +92,18 @@ export default function MapScreen() {
           return;
         }
 
-
         const position =
           await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.High
           });
 
-
         setLocation(position.coords);
-
 
         subscription =
           await Location.watchPositionAsync(
             {
-              accuracy:
-                Location.Accuracy.High,
-
+              accuracy: Location.Accuracy.High,
               timeInterval: 3000,
-
               distanceInterval: 5
             },
 
@@ -111,13 +114,9 @@ export default function MapScreen() {
 
               setLocation(coords);
 
+              if (webViewRef.current) {
 
-              // Aktualizujemy pozycję
-              // bez przeładowywania mapy
-
-              if(webViewRef.current){
-
-                const js = `
+                webViewRef.current.injectJavaScript(`
                   if(window.updateUserLocation){
                     window.updateUserLocation(
                       ${coords.latitude},
@@ -126,15 +125,14 @@ export default function MapScreen() {
                     );
                   }
                   true;
-                `;
+                `);
 
-                webViewRef.current.injectJavaScript(js);
               }
 
             }
           );
 
-      }catch(e){
+      } catch (e) {
 
         console.log(e);
 
@@ -146,16 +144,12 @@ export default function MapScreen() {
 
     }
 
-
     startGPS();
-
 
     return () => {
 
-      if(subscription){
-
+      if (subscription) {
         subscription.remove();
-
       }
 
     };
@@ -163,62 +157,50 @@ export default function MapScreen() {
   }, [followUser]);
 
 
-  // =====================================
-  // WYSZUKIWANIE
-  // =====================================
+  async function handleSearch(text) {
 
-  async function handleSearch(text){
-
-    if(!text ||
-       text.trim().length < 3){
+    if (!text ||
+        text.trim().length < 3) {
 
       setResults([]);
 
       return;
     }
 
-
     const places =
       await searchPlaces(text);
 
-
     setResults(places);
-
   }
 
 
-  // =====================================
-  // WYBÓR CELU
-  // =====================================
-
-  async function handleSelect(place){
+  async function handleSelect(place) {
 
     setResults([]);
 
-    if(!location){
-
+    if (!location) {
       return;
     }
 
-
     setLoadingRoute(true);
 
+    try {
 
-    try{
+      const selectedProfile =
+        ROUTE_PROFILES[profile];
 
       const result =
         await getRoute(
           location.latitude,
           location.longitude,
           place.latitude,
-          place.longitude
+          place.longitude,
+          selectedProfile
         );
 
-
-      if(!result){
+      if (!result) {
 
         setRouteInfo(null);
-
         setRoute([]);
 
         setError(
@@ -228,30 +210,16 @@ export default function MapScreen() {
         return;
       }
 
-
-      setRoute(
-        result.geometry
-      );
-
+      setRoute(result.geometry);
 
       setRouteInfo({
-
-        distance:
-          result.distance,
-
-        duration:
-          result.duration
-
+        distance: result.distance,
+        duration: result.duration
       });
-
-
-      // Po wybraniu celu
-      // włączamy śledzenie
 
       setFollowUser(true);
 
-
-    }catch(e){
+    } catch (e) {
 
       console.log(e);
 
@@ -259,59 +227,50 @@ export default function MapScreen() {
         'Błąd podczas wyznaczania trasy'
       );
 
-    }finally{
+    } finally {
 
       setLoadingRoute(false);
-
     }
 
   }
 
 
-  // =====================================
-  // PRZYCISK MOJA LOKALIZACJA
-  // =====================================
+  function centerOnUser() {
 
-  function centerOnUser(){
-
-    if(!location ||
-       !webViewRef.current){
+    if (!location ||
+        !webViewRef.current) {
 
       return;
     }
 
-
     setFollowUser(true);
 
-
-    const js = `
+    webViewRef.current.injectJavaScript(`
       if(window.updateUserLocation){
-
         window.updateUserLocation(
           ${location.latitude},
           ${location.longitude},
           true
         );
-
       }
-
       true;
-    `;
-
-
-    webViewRef.current.injectJavaScript(js);
-
+    `);
   }
 
 
-  // =====================================
-  // EKRAN BŁĘDU
-  // =====================================
+  function selectProfile(id) {
 
-  if(error){
+    setProfile(id);
 
-    return(
+    setRoute([]);
 
+    setRouteInfo(null);
+  }
+
+
+  if (error) {
+
+    return (
       <View style={styles.center}>
 
         <Text style={styles.error}>
@@ -319,40 +278,25 @@ export default function MapScreen() {
         </Text>
 
       </View>
-
     );
-
   }
 
 
-  // =====================================
-  // CZEKAMY NA GPS
-  // =====================================
+  if (!location) {
 
-  if(!location){
-
-    return(
-
+    return (
       <View style={styles.center}>
 
-        <ActivityIndicator
-          size="large"
-        />
+        <ActivityIndicator size="large" />
 
         <Text style={styles.loading}>
           Pobieranie GPS...
         </Text>
 
       </View>
-
     );
-
   }
 
-
-  // =====================================
-  // INFORMACJE O TRASIE
-  // =====================================
 
   const distanceKm =
     routeInfo
@@ -362,61 +306,42 @@ export default function MapScreen() {
 
   const durationMin =
     routeInfo
-      ? Math.round(
-          routeInfo.duration / 60
-        )
+      ? Math.round(routeInfo.duration / 60)
       : null;
 
 
-  // =====================================
-  // WIDOK
-  // =====================================
+  const activeProfile =
+    ROUTE_PROFILES[profile];
 
-  return(
+
+  return (
 
     <View style={styles.container}>
 
-
       <WebView
-
         ref={webViewRef}
-
         originWhitelist={['*']}
-
         source={{
-          html:getMapHtml(
+          html: getMapHtml(
             location.latitude,
             location.longitude,
             route
           )
         }}
-
         style={styles.map}
-
       />
 
-
-      {/* WYSZUKIWARKA */}
 
       <SearchBar
-
         results={results}
-
         onSearch={handleSearch}
-
         onSelect={handleSelect}
-
       />
 
 
-      {/* MOJA LOKALIZACJA */}
-
       <TouchableOpacity
-
         style={styles.locationButton}
-
         onPress={centerOnUser}
-
       >
 
         <Text style={styles.locationIcon}>
@@ -426,52 +351,54 @@ export default function MapScreen() {
       </TouchableOpacity>
 
 
-      {/* INFORMACJA O ŚLEDZENIU */}
+      <TouchableOpacity
+        style={styles.profileButton}
+        onPress={() =>
+          setShowProfiles(true)
+        }
+      >
+
+        <Text style={styles.profileIcon}>
+          {activeProfile.icon}
+        </Text>
+
+        <Text style={styles.profileText}>
+          {activeProfile.name}
+        </Text>
+
+      </TouchableOpacity>
+
 
       <TouchableOpacity
-
         style={[
           styles.followButton,
-
           followUser
             ? styles.followActive
             : styles.followInactive
         ]}
-
-        onPress={() => {
-
-          setFollowUser(
-            !followUser
-          );
-
-        }}
-
+        onPress={() =>
+          setFollowUser(!followUser)
+        }
       >
 
         <Text style={styles.followText}>
 
           {followUser
-            ? '🧭 Śledzenie GPS'
-            : '⏸️ Śledzenie wyłączone'}
+            ? '🧭 GPS'
+            : '⏸️ GPS'}
 
         </Text>
 
       </TouchableOpacity>
 
 
-      {/* WYZNACZANIE TRASY */}
-
       {loadingRoute && (
 
         <View style={styles.routeLoading}>
 
-          <ActivityIndicator
-            color="#fff"
-          />
+          <ActivityIndicator color="#fff" />
 
-          <Text
-            style={styles.routeLoadingText}
-          >
+          <Text style={styles.routeLoadingText}>
             Wyznaczanie trasy...
           </Text>
 
@@ -479,8 +406,6 @@ export default function MapScreen() {
 
       )}
 
-
-      {/* INFORMACJE O TRASIE */}
 
       {routeInfo &&
        !loadingRoute && (
@@ -491,11 +416,9 @@ export default function MapScreen() {
             🛣️ Trasa
           </Text>
 
-
           <Text style={styles.infoText}>
             📏 {distanceKm} km
           </Text>
-
 
           <Text style={styles.infoText}>
             ⏱️ około {durationMin} min
@@ -505,179 +428,155 @@ export default function MapScreen() {
 
       )}
 
+
+      {showProfiles && (
+
+        <RouteProfileMenu
+          activeProfile={profile}
+          onSelect={selectProfile}
+          onClose={() =>
+            setShowProfiles(false)
+          }
+        />
+
+      )}
+
     </View>
-
   );
-
 }
 
 
-// =====================================
-// STYLE
-// =====================================
-
 const styles = StyleSheet.create({
 
-  container:{
-    flex:1
+  container: {
+    flex: 1
   },
 
-
-  map:{
-    flex:1
+  map: {
+    flex: 1
   },
 
-
-  center:{
-    flex:1,
-    justifyContent:'center',
-    alignItems:'center'
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
 
-
-  loading:{
-    marginTop:12,
-    fontSize:16
+  loading: {
+    marginTop: 12,
+    fontSize: 16
   },
 
-
-  error:{
-    color:'#d32f2f',
-    fontSize:16,
-    textAlign:'center',
-    padding:20
+  error: {
+    color: '#d32f2f',
+    fontSize: 16,
+    textAlign: 'center',
+    padding: 20
   },
 
-
-  locationButton:{
-
-    position:'absolute',
-
-    right:12,
-
-    top:75,
-
-    width:52,
-
-    height:52,
-
-    borderRadius:26,
-
-    backgroundColor:'#fff',
-
-    justifyContent:'center',
-
-    alignItems:'center',
-
-    elevation:7
-
+  locationButton: {
+    position: 'absolute',
+    right: 12,
+    top: 75,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 7
   },
 
-
-  locationIcon:{
-    fontSize:25
+  locationIcon: {
+    fontSize: 25
   },
 
-
-  followButton:{
-
-    position:'absolute',
-
-    right:12,
-
-    top:135,
-
-    borderRadius:20,
-
-    paddingHorizontal:13,
-
-    paddingVertical:9,
-
-    elevation:5
-
+  profileButton: {
+    position: 'absolute',
+    left: 12,
+    top: 75,
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 6
   },
 
-
-  followActive:{
-    backgroundColor:'#1976D2'
+  profileIcon: {
+    fontSize: 20,
+    marginRight: 6
   },
 
-
-  followInactive:{
-    backgroundColor:'#555'
+  profileText: {
+    fontSize: 13,
+    fontWeight: 'bold'
   },
 
-
-  followText:{
-    color:'#fff',
-    fontWeight:'bold',
-    fontSize:12
+  followButton: {
+    position: 'absolute',
+    right: 12,
+    top: 135,
+    borderRadius: 20,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    elevation: 5
   },
 
-
-  routeLoading:{
-
-    position:'absolute',
-
-    top:190,
-
-    alignSelf:'center',
-
-    backgroundColor:'#1976D2',
-
-    paddingHorizontal:18,
-
-    paddingVertical:10,
-
-    borderRadius:20,
-
-    flexDirection:'row',
-
-    alignItems:'center',
-
-    elevation:6
-
+  followActive: {
+    backgroundColor: '#1976D2'
   },
 
-
-  routeLoadingText:{
-    color:'#fff',
-    marginLeft:8,
-    fontWeight:'bold'
+  followInactive: {
+    backgroundColor: '#555'
   },
 
-
-  info:{
-
-    position:'absolute',
-
-    bottom:10,
-
-    left:10,
-
-    backgroundColor:'#fff',
-
-    borderRadius:12,
-
-    padding:14,
-
-    elevation:7,
-
-    minWidth:150
-
+  followText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12
   },
 
-
-  infoTitle:{
-    fontSize:17,
-    fontWeight:'bold',
-    marginBottom:5
+  routeLoading: {
+    position: 'absolute',
+    top: 190,
+    alignSelf: 'center',
+    backgroundColor: '#1976D2',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 6
   },
 
+  routeLoadingText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: 'bold'
+  },
 
-  infoText:{
-    fontSize:15,
-    marginTop:2
+  info: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    elevation: 7,
+    minWidth: 150
+  },
+
+  infoTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    marginBottom: 5
+  },
+
+  infoText: {
+    fontSize: 15,
+    marginTop: 2
   }
 
 });

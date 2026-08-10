@@ -1,37 +1,109 @@
-export async function getRoute(startLat,startLon,endLat,endLon){
+export async function getRoute(
+  startLat,
+  startLon,
+  endLat,
+  endLon,
+  profile = {}
+) {
 
-try{
+  try {
 
-const response=await fetch(
+    /*
+     * OSRM publiczny używa profilu samochodowego.
+     * Parametry CrossNav przechowujemy już tutaj,
+     * żeby później można było podłączyć właściwy
+     * silnik routingu dla motorowerów i crossów.
+     */
 
-`https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson`
+    const avoidHighways =
+      profile.avoidHighways === true;
 
-);
+    const avoidMotorways =
+      profile.avoidMotorways === true;
 
-const json=await response.json();
 
-if(!json.routes||!json.routes.length){
+    let url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${startLon},${startLat};${endLon},${endLat}` +
+      `?overview=full&geometries=geojson`;
 
-return null;
 
-}
+    /*
+     * Dodatkowe parametry zapisujemy w zapytaniu.
+     * Publiczny OSRM może je ignorować,
+     * ale zachowujemy strukturę pod przyszły routing CrossNav.
+     */
 
-const route=json.routes[0];
+    if (avoidHighways) {
+      url += '&exclude=motorway';
+    }
 
-return{
 
-distance:route.distance,
-duration:route.duration,
-geometry:route.geometry.coordinates
+    if (avoidMotorways && !avoidHighways) {
+      url += '&exclude=motorway';
+    }
 
-};
 
-}catch(e){
+    console.log(
+      'CrossNav routing profile:',
+      profile.name || 'standard'
+    );
 
-console.log(e);
 
-return null;
+    const response =
+      await fetch(url);
 
-}
+
+    if (!response.ok) {
+
+      console.log(
+        'Routing HTTP error:',
+        response.status
+      );
+
+      return null;
+    }
+
+
+    const json =
+      await response.json();
+
+
+    if (
+      !json.routes ||
+      !json.routes.length
+    ) {
+
+      return null;
+    }
+
+
+    const route =
+      json.routes[0];
+
+
+    return {
+
+      distance:
+        route.distance,
+
+      duration:
+        route.duration,
+
+      geometry:
+        route.geometry.coordinates
+
+    };
+
+
+  } catch (e) {
+
+    console.log(
+      'Routing error:',
+      e
+    );
+
+    return null;
+  }
 
 }
