@@ -1,8 +1,8 @@
-import { CROSSNAV_PROFILE } from './routing/crossNavProfile';
-import { EXPLORER_PROFILE } from './routing/explorerProfile';
+const OSRM_URL =
+  'https://router.project-osrm.org/route/v1/driving';
 
 
-async function requestRoute(
+async function requestRoutes(
   startLat,
   startLon,
   endLat,
@@ -11,9 +11,12 @@ async function requestRoute(
 ) {
 
   let url =
-    `https://router.project-osrm.org/route/v1/driving/` +
+    `${OSRM_URL}/` +
     `${startLon},${startLat};${endLon},${endLat}` +
-    `?overview=full&geometries=geojson`;
+    `?overview=full` +
+    `&geometries=geojson` +
+    `&alternatives=3` +
+    `&steps=true`;
 
   if (options.avoidMotorway) {
     url += '&exclude=motorway';
@@ -27,22 +30,36 @@ async function requestRoute(
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    throw new Error(`OSRM HTTP ${response.status}`);
   }
 
   const json = await response.json();
 
-  if (!json.routes || !json.routes.length) {
+  if (
+    json.code !== 'Ok' ||
+    !json.routes ||
+    !json.routes.length
+  ) {
     return null;
   }
 
-  const route = json.routes[0];
+  return json.routes.map((route, index) => ({
 
-  return {
+    id: index,
+
     distance: route.distance,
+
     duration: route.duration,
-    geometry: route.geometry.coordinates
-  };
+
+    geometry:
+      route.geometry.coordinates,
+
+    steps:
+      route.legs?.flatMap(
+        leg => leg.steps || []
+      ) || []
+
+  }));
 }
 
 
@@ -56,131 +73,75 @@ export async function getRoute(
 
   try {
 
-    const explorerMode =
+    const mode =
       profile.explorerMode || 'normal';
 
 
-    // ==================================
-    // NORMALNA TRASA
-    // ==================================
-
-    if (explorerMode === 'normal') {
-
-      return await requestRoute(
+    const routes =
+      await requestRoutes(
         startLat,
         startLon,
         endLat,
         endLon,
         {
-          mode: 'normal',
+          mode,
+
           avoidMotorway:
+            mode !== 'normal' ||
             profile.avoidMotorway === true
         }
       );
+
+
+    if (!routes || !routes.length) {
+      return null;
     }
 
 
-    // ==================================
-    // ODKRYWCA
-    // ==================================
+    /*
+     * NORMALNA TRASA
+     *
+     * Bierzemy pierwszą trasę,
+     * którą OSRM uznał za najlepszą.
+     */
 
-    if (explorerMode === 'explorer') {
+    if (mode === 'normal') {
 
-      console.log(
-        'CrossNav Odkrywca:',
-        EXPLORER_PROFILE.name
-      );
+      return routes[0];
 
-      const route =
-        await requestRoute(
-          startLat,
-          startLon,
-          endLat,
-          endLon,
-          {
-            mode: 'explorer',
-            avoidMotorway:
-              EXPLORER_PROFILE.avoidMotorway
-          }
-        );
-
-      if (route) {
-        return route;
-      }
-
-      // awaryjnie zwykła trasa
-      return await requestRoute(
-        startLat,
-        startLon,
-        endLat,
-        endLon,
-        {
-          mode: 'explorer-fallback'
-        }
-      );
     }
 
 
-    // ==================================
-    // TEREN
-    // ==================================
+    /*
+     * ODKRYWCA / TEREN
+     *
+     * Na tym etapie wybieramy
+     * alternatywę z najmniejszym
+     * dystansem spośród dostępnych.
+     *
+     * Kolejny etap dołoży tutaj
+     * prawdziwą ocenę dróg z OSM.
+     */
 
-    if (explorerMode === 'terrain') {
-
-      console.log(
-        'CrossNav Teren:',
-        CROSSNAV_PROFILE.name
+    const sorted =
+      [...routes].sort(
+        (a, b) =>
+          a.distance - b.distance
       );
 
-      const route =
-        await requestRoute(
-          startLat,
-          startLon,
-          endLat,
-          endLon,
-          {
-            mode: 'terrain',
-            avoidMotorway: true
-          }
-        );
 
-      if (route) {
-        return route;
-      }
-
-      return await requestRoute(
-        startLat,
-        startLon,
-        endLat,
-        endLon,
-        {
-          mode: 'terrain-fallback'
-        }
-      );
-    }
+    return sorted[0];
 
 
-    // ==================================
-    // AWARYJNIE
-    // ==================================
-
-    return await requestRoute(
-      startLat,
-      startLon,
-      endLat,
-      endLon,
-      {}
-    );
-
-
-  } catch (e) {
+  } catch (error) {
 
     console.log(
-      'CrossNav routing error:',
-      e
+      'CrossNav route error:',
+      error
     );
 
     return null;
+
   }
 
 }
