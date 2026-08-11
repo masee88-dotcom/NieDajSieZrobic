@@ -1,53 +1,63 @@
 export function getMapHtml(
   latitude,
   longitude,
-  routeGeometry = []
+  route = null
 ) {
 
-  const route = JSON.stringify(
-    routeGeometry.map(point => [
-      point[1],
-      point[0]
-    ])
-  );
+  const routeCoordinates =
+    route?.geometry || [];
+
+  const routeJson =
+    JSON.stringify(
+      routeCoordinates
+    );
+
+  const destination =
+    route?.destination || null;
+
+  const destinationJson =
+    JSON.stringify(
+      destination
+    );
 
   return `
 <!DOCTYPE html>
+
 <html>
 
 <head>
 
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+/>
 
 <link
-rel="stylesheet"
-href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 />
 
 <script
-src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
 </script>
 
 <style>
 
-html,body,#map{
-height:100%;
-margin:0;
-padding:0;
+html,
+body,
+#map {
+
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+
 }
 
-.leaflet-control-attribution{
-display:none;
-}
+.leaflet-control-attribution {
 
-.user-marker{
-width:22px;
-height:22px;
-border-radius:50%;
-background:#1976D2;
-border:4px solid white;
-box-shadow:0 0 0 2px #1976D2;
+  font-size: 9px;
+
 }
 
 </style>
@@ -60,109 +70,127 @@ box-shadow:0 0 0 2px #1976D2;
 
 <script>
 
-const startLat = ${latitude};
-const startLon = ${longitude};
+const startLat =
+  ${latitude};
 
-const route = ${route};
+const startLon =
+  ${longitude};
 
-const map = L.map('map').setView(
-  [startLat,startLon],
-  15
-);
+const routeCoordinates =
+  ${routeJson};
+
+const destination =
+  ${destinationJson};
+
+
+const map =
+  L.map('map')
+   .setView(
+     [startLat, startLon],
+     14
+   );
+
 
 L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
-    maxZoom:19
+    maxZoom: 19,
+    attribution:
+      '&copy; OpenStreetMap contributors'
   }
 ).addTo(map);
 
 
-// ===============================
-// TWOJA POZYCJA
-// ===============================
+// ========================================
+// AKTUALNA LOKALIZACJA
+// ========================================
 
-const userIcon = L.divIcon({
-  className: '',
-  html: '<div class="user-marker"></div>',
-  iconSize: [30,30],
-  iconAnchor: [15,15]
-});
-
-let userMarker = L.marker(
-  [startLat,startLon],
-  {
-    icon:userIcon,
-    zIndexOffset:1000
-  }
-).addTo(map);
-
-userMarker.bindPopup('📍 Jesteś tutaj');
+const currentMarker =
+  L.marker(
+    [startLat, startLon]
+  )
+  .addTo(map)
+  .bindPopup(
+    '📍 Twoja lokalizacja'
+  );
 
 
-// ===============================
+// ========================================
 // TRASA
-// ===============================
+// ========================================
 
-if(route.length > 0){
+if (
+  Array.isArray(routeCoordinates) &&
+  routeCoordinates.length > 1
+) {
 
-  const line = L.polyline(
-    route,
+  const latLngs =
+    routeCoordinates.map(
+      point => [
+        point[1],
+        point[0]
+      ]
+    );
+
+
+  const routeLine =
+    L.polyline(
+      latLngs,
+      {
+        color: '#1565c0',
+        weight: 6,
+        opacity: 0.9
+      }
+    ).addTo(map);
+
+
+  // Dopasowanie mapy
+  // do całej trasy
+
+  map.fitBounds(
+    routeLine.getBounds(),
     {
-      color:'#1976D2',
-      weight:6,
-      opacity:0.85
+      padding: [
+        40,
+        40
+      ]
     }
-  ).addTo(map);
-
-  const bounds = line.getBounds();
-
-  map.fitBounds(bounds,{
-    padding:[40,40]
-  });
-
-  const destination =
-    route[route.length - 1];
-
-  L.marker(destination)
-    .addTo(map)
-    .bindPopup('🏁 Cel');
+  );
 
 }
 
 
-// ===============================
-// AKTUALIZACJA POZYCJI
-// ===============================
+// ========================================
+// CEL
+// ========================================
 
-window.updateUserLocation = function(
-  latitude,
-  longitude,
-  follow
-){
+if (
+  destination &&
+  Number.isFinite(
+    destination.latitude
+  ) &&
+  Number.isFinite(
+    destination.longitude
+  )
+) {
 
-  userMarker.setLatLng([
-    latitude,
-    longitude
-  ]);
+  L.marker(
+    [
+      destination.latitude,
+      destination.longitude
+    ]
+  )
+  .addTo(map)
+  .bindPopup(
+    '🏁 Cel'
+  );
 
-  if(follow){
-
-    map.setView(
-      [latitude,longitude],
-      map.getZoom(),
-      {
-        animate:true
-      }
-    );
-
-  }
-
-};
+}
 
 </script>
 
 </body>
+
 </html>
 `;
 }

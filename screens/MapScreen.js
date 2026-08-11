@@ -6,7 +6,8 @@ import React, {
 import {
   View,
   Text,
-  StyleSheet
+  StyleSheet,
+  Alert
 } from 'react-native';
 
 import {
@@ -19,8 +20,19 @@ import {
   getMapHtml
 } from '../utils/mapHtml';
 
+import {
+  getRoute
+} from '../services/routeService';
+
+import {
+  geocodeDestination
+} from '../services/geocodingService';
+
 import RouteModeButton
   from '../components/RouteModeButton';
+
+import SearchBar
+  from '../components/SearchBar';
 
 
 export default function MapScreen() {
@@ -39,6 +51,16 @@ export default function MapScreen() {
     mode,
     setMode
   ] = useState('normal');
+
+  const [
+    searching,
+    setSearching
+  ] = useState(false);
+
+  const [
+    route,
+    setRoute
+  ] = useState(null);
 
 
   useEffect(() => {
@@ -63,6 +85,7 @@ export default function MapScreen() {
           );
 
           return;
+
         }
 
 
@@ -87,7 +110,7 @@ export default function MapScreen() {
         );
 
         setError(
-          'Nie udało się pobrać lokalizacji GPS'
+          'Nie udało się pobrać GPS'
         );
 
       }
@@ -97,15 +120,117 @@ export default function MapScreen() {
   }, []);
 
 
+  async function searchDestination(
+    query
+  ) {
+
+    if (!location) {
+      return;
+    }
+
+
+    setSearching(true);
+
+
+    try {
+
+      // ==================================
+      // SZUKAMY CELU
+      // ==================================
+
+      const destination =
+        await geocodeDestination(
+          query
+        );
+
+
+      if (!destination) {
+
+        Alert.alert(
+          'CrossNav',
+          'Nie znaleziono tego celu.'
+        );
+
+        return;
+
+      }
+
+
+      // ==================================
+      // WYZNACZAMY TRASĘ
+      // ==================================
+
+      const result =
+        await getRoute(
+          location.latitude,
+          location.longitude,
+          destination.latitude,
+          destination.longitude,
+          {
+            explorerMode:
+              mode,
+
+            avoidMotorway:
+              mode === 'explorer'
+          }
+        );
+
+
+      if (!result) {
+
+        Alert.alert(
+          'CrossNav',
+          'Nie udało się znaleźć trasy do tego celu.'
+        );
+
+        return;
+
+      }
+
+
+      // ==================================
+      // ZAPISUJEMY TRASĘ
+      // ==================================
+
+      setRoute({
+
+        ...result,
+
+        destination
+
+      });
+
+
+    } catch (e) {
+
+      console.log(
+        'CrossNav search error:',
+        e
+      );
+
+      Alert.alert(
+        'CrossNav',
+        'Wystąpił błąd podczas wyszukiwania.'
+      );
+
+    } finally {
+
+      setSearching(false);
+
+    }
+
+  }
+
+
   if (error) {
 
     return (
-      <View
-        style={styles.center}
-      >
+      <View style={styles.center}>
+
         <Text>
           {error}
         </Text>
+
       </View>
     );
 
@@ -115,12 +240,12 @@ export default function MapScreen() {
   if (!location) {
 
     return (
-      <View
-        style={styles.center}
-      >
+      <View style={styles.center}>
+
         <Text>
           Pobieranie GPS...
         </Text>
+
       </View>
     );
 
@@ -139,12 +264,15 @@ export default function MapScreen() {
           html:
             getMapHtml(
               location.latitude,
-              location.longitude
+              location.longitude,
+              route
             )
         }}
         style={
           StyleSheet.absoluteFill
         }
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
       />
 
 
@@ -152,6 +280,62 @@ export default function MapScreen() {
         mode={mode}
         onChange={setMode}
       />
+
+
+      <SearchBar
+        onSearch={
+          searchDestination
+        }
+        searching={
+          searching
+        }
+      />
+
+
+      {route && (
+
+        <View
+          style={styles.routeInfo}
+        >
+
+          <Text
+            style={styles.routeTitle}
+          >
+            {mode === 'explorer'
+              ? '🌲 ODKRYWCA'
+              : '🛣️ NORMALNA'}
+          </Text>
+
+
+          <Text
+            style={styles.routeText}
+          >
+            Dystans:{' '}
+            {(
+              route.distance / 1000
+            ).toFixed(1)} km
+          </Text>
+
+
+          <Text
+            style={styles.routeText}
+          >
+            Czas:{' '}
+            {Math.round(
+              route.duration / 60
+            )} min
+          </Text>
+
+
+          <Text
+            style={styles.routeReady}
+          >
+            ✅ TRASA GOTOWA
+          </Text>
+
+        </View>
+
+      )}
 
     </View>
 
@@ -173,6 +357,46 @@ const styles =
         'center',
       alignItems:
         'center'
+    },
+
+    routeInfo: {
+      position:
+        'absolute',
+
+      bottom: 80,
+
+      left: 15,
+
+      right: 15,
+
+      backgroundColor:
+        '#ffffff',
+
+      borderRadius: 14,
+
+      padding: 15,
+
+      elevation: 7
+    },
+
+    routeTitle: {
+      fontSize: 18,
+
+      fontWeight: '800',
+
+      marginBottom: 6
+    },
+
+    routeText: {
+      fontSize: 16,
+
+      marginTop: 3
+    },
+
+    routeReady: {
+      marginTop: 8,
+
+      fontWeight: '800'
     }
 
   });
