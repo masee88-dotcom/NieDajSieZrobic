@@ -1,11 +1,12 @@
 export const ROUTE_PROFILES = {
+
   motorower: {
     id: 'motorower',
     name: 'Motorower 50 cc',
     icon: '🛵',
     maxSpeed: 45,
-    avoidHighways: true,
-    avoidMotorways: true,
+    avoidMotorway: true,
+    avoidTrunk: true,
     preferLocal: true
   },
 
@@ -14,8 +15,8 @@ export const ROUTE_PROFILES = {
     name: 'Motocykl',
     icon: '🏍️',
     maxSpeed: null,
-    avoidHighways: false,
-    avoidMotorways: false,
+    avoidMotorway: false,
+    avoidTrunk: false,
     preferLocal: false
   },
 
@@ -24,9 +25,10 @@ export const ROUTE_PROFILES = {
     name: 'Cross / Enduro',
     icon: '🌲',
     maxSpeed: null,
-    avoidHighways: true,
-    avoidMotorways: true,
-    preferLocal: true
+    avoidMotorway: true,
+    avoidTrunk: true,
+    preferLocal: true,
+    preferUnpaved: true
   },
 
   samochod: {
@@ -34,10 +36,12 @@ export const ROUTE_PROFILES = {
     name: 'Samochód',
     icon: '🚗',
     maxSpeed: null,
-    avoidHighways: false,
-    avoidMotorways: false,
+    avoidMotorway: false,
+    avoidTrunk: false,
     preferLocal: false
   }
+
 };
 
-export const DEFAULT_ROUTE_PROFILE = 'motorower';
+export const DEFAULT_ROUTE_PROFILE =
+  'motorower';

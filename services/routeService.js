@@ -1,3 +1,52 @@
+async function requestRoute(
+  startLat,
+  startLon,
+  endLat,
+  endLon,
+  options = {}
+) {
+
+  let url =
+    `https://router.project-osrm.org/route/v1/driving/` +
+    `${startLon},${startLat};${endLon},${endLat}` +
+    `?overview=full&geometries=geojson`;
+
+  // Na razie tylko autostrady możemy bezpiecznie
+  // wykluczyć w publicznym OSRM.
+  if (options.avoidMotorway) {
+    url += '&exclude=motorway';
+  }
+
+  console.log(
+    'CrossNav routing:',
+    options.explorerMode || 'normal'
+  );
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const json = await response.json();
+
+  if (
+    !json.routes ||
+    !json.routes.length
+  ) {
+    return null;
+  }
+
+  const route = json.routes[0];
+
+  return {
+    distance: route.distance,
+    duration: route.duration,
+    geometry: route.geometry.coordinates
+  };
+}
+
+
 export async function getRoute(
   startLat,
   startLon,
@@ -8,98 +57,72 @@ export async function getRoute(
 
   try {
 
-    /*
-     * OSRM publiczny używa profilu samochodowego.
-     * Parametry CrossNav przechowujemy już tutaj,
-     * żeby później można było podłączyć właściwy
-     * silnik routingu dla motorowerów i crossów.
-     */
-
-    const avoidHighways =
-      profile.avoidHighways === true;
-
-    const avoidMotorways =
-      profile.avoidMotorways === true;
-
-
-    let url =
-      `https://router.project-osrm.org/route/v1/driving/` +
-      `${startLon},${startLat};${endLon},${endLat}` +
-      `?overview=full&geometries=geojson`;
-
+    const explorer =
+      profile.explorerMode || 'normal';
 
     /*
-     * Dodatkowe parametry zapisujemy w zapytaniu.
-     * Publiczny OSRM może je ignorować,
-     * ale zachowujemy strukturę pod przyszły routing CrossNav.
+     * NORMALNA
      */
+    if (explorer === 'normal') {
 
-    if (avoidHighways) {
-      url += '&exclude=motorway';
+      return await requestRoute(
+        startLat,
+        startLon,
+        endLat,
+        endLon,
+        {
+          avoidMotorway:
+            profile.avoidMotorway === true
+        }
+      );
     }
 
 
-    if (avoidMotorways && !avoidHighways) {
-      url += '&exclude=motorway';
-    }
+    /*
+     * ODKRYWCA / TEREN
+     *
+     * Na obecnym silniku zaczynamy od
+     * bezpiecznego wykluczenia autostrad.
+     *
+     * Prawdziwe preferowanie dróg gruntowych
+     * dołożymy po podłączeniu właściwego
+     * silnika routingu.
+     */
 
-
-    console.log(
-      'CrossNav routing profile:',
-      profile.name || 'standard'
-    );
-
-
-    const response =
-      await fetch(url);
-
-
-    if (!response.ok) {
-
-      console.log(
-        'Routing HTTP error:',
-        response.status
+    const explorerRoute =
+      await requestRoute(
+        startLat,
+        startLon,
+        endLat,
+        endLon,
+        {
+          avoidMotorway: true,
+          explorerMode: explorer
+        }
       );
 
-      return null;
+    if (explorerRoute) {
+      return explorerRoute;
     }
 
 
-    const json =
-      await response.json();
+    // Awaryjnie zwykła trasa
 
-
-    if (
-      !json.routes ||
-      !json.routes.length
-    ) {
-
-      return null;
-    }
-
-
-    const route =
-      json.routes[0];
-
-
-    return {
-
-      distance:
-        route.distance,
-
-      duration:
-        route.duration,
-
-      geometry:
-        route.geometry.coordinates
-
-    };
-
+    return await requestRoute(
+      startLat,
+      startLon,
+      endLat,
+      endLon,
+      {
+        avoidMotorway: false,
+        explorerMode: 'fallback'
+      }
+    );
 
   } catch (e) {
 
     console.log(
-      'Routing error:',
+      'CrossNav routing error:',
       e
     );
 

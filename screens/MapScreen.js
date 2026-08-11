@@ -12,58 +12,43 @@ import {
   TouchableOpacity
 } from 'react-native';
 
-import {
-  WebView
-} from 'react-native-webview';
-
+import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 
 import SearchBar from '../components/SearchBar';
-
 import RouteProfileMenu from '../components/RouteProfileMenu';
+import ExplorerMenu from '../components/ExplorerMenu';
 
-import {
-  searchPlaces
-} from '../services/geocodingService';
+import { searchPlaces } from '../services/geocodingService';
+import { getRoute } from '../services/routeService';
 
-import {
-  getRoute
-} from '../services/routeService';
-
-import {
-  getMapHtml
-} from '../utils/mapHtml';
+import { getMapHtml } from '../utils/mapHtml';
 
 import {
   ROUTE_PROFILES,
   DEFAULT_ROUTE_PROFILE
 } from '../utils/routeProfiles';
 
+import {
+  DEFAULT_EXPLORER_MODE,
+  EXPLORER_MODES
+} from '../utils/explorerMode';
+
 
 export default function MapScreen() {
 
   const webViewRef = useRef(null);
 
-  const [location, setLocation] =
-    useState(null);
+  const [location, setLocation] = useState(null);
+  const [error, setError] = useState('');
+  const [results, setResults] = useState([]);
 
-  const [error, setError] =
-    useState('');
+  const [route, setRoute] = useState([]);
+  const [routeInfo, setRouteInfo] = useState(null);
 
-  const [results, setResults] =
-    useState([]);
+  const [loadingRoute, setLoadingRoute] = useState(false);
 
-  const [route, setRoute] =
-    useState([]);
-
-  const [routeInfo, setRouteInfo] =
-    useState(null);
-
-  const [loadingRoute, setLoadingRoute] =
-    useState(false);
-
-  const [followUser, setFollowUser] =
-    useState(true);
+  const [followUser, setFollowUser] = useState(true);
 
   const [profile, setProfile] =
     useState(DEFAULT_ROUTE_PROFILE);
@@ -71,6 +56,19 @@ export default function MapScreen() {
   const [showProfiles, setShowProfiles] =
     useState(false);
 
+  const [explorerMode, setExplorerMode] =
+    useState(DEFAULT_EXPLORER_MODE);
+
+  const [showExplorer, setShowExplorer] =
+    useState(false);
+
+  const [routeMessage, setRouteMessage] =
+    useState('');
+
+
+  // ==============================
+  // GPS
+  // ==============================
 
   useEffect(() => {
 
@@ -157,7 +155,13 @@ export default function MapScreen() {
   }, [followUser]);
 
 
+  // ==============================
+  // WYSZUKIWANIE
+  // ==============================
+
   async function handleSearch(text) {
+
+    setRouteMessage('');
 
     if (!text ||
         text.trim().length < 3) {
@@ -174,9 +178,17 @@ export default function MapScreen() {
   }
 
 
+  // ==============================
+  // TRASA
+  // ==============================
+
   async function handleSelect(place) {
 
     setResults([]);
+
+    setRouteMessage('');
+    setRouteInfo(null);
+    setRoute([]);
 
     if (!location) {
       return;
@@ -189,22 +201,38 @@ export default function MapScreen() {
       const selectedProfile =
         ROUTE_PROFILES[profile];
 
+      const selectedExplorer =
+        EXPLORER_MODES[explorerMode];
+
+
+      console.log(
+        'CrossNav profil:',
+        selectedProfile.name
+      );
+
+      console.log(
+        'CrossNav tryb:',
+        selectedExplorer.name
+      );
+
+
       const result =
         await getRoute(
           location.latitude,
           location.longitude,
           place.latitude,
           place.longitude,
-          selectedProfile
+          {
+            ...selectedProfile,
+            explorerMode
+          }
         );
+
 
       if (!result) {
 
-        setRouteInfo(null);
-        setRoute([]);
-
-        setError(
-          'Nie udało się wyznaczyć trasy'
+        setRouteMessage(
+          'Nie udało się znaleźć trasy do tego celu.'
         );
 
         return;
@@ -223,8 +251,8 @@ export default function MapScreen() {
 
       console.log(e);
 
-      setError(
-        'Błąd podczas wyznaczania trasy'
+      setRouteMessage(
+        'Wystąpił błąd podczas wyznaczania trasy.'
       );
 
     } finally {
@@ -234,6 +262,10 @@ export default function MapScreen() {
 
   }
 
+
+  // ==============================
+  // LOKALIZACJA
+  // ==============================
 
   function centerOnUser() {
 
@@ -255,16 +287,6 @@ export default function MapScreen() {
       }
       true;
     `);
-  }
-
-
-  function selectProfile(id) {
-
-    setProfile(id);
-
-    setRoute([]);
-
-    setRouteInfo(null);
   }
 
 
@@ -298,6 +320,13 @@ export default function MapScreen() {
   }
 
 
+  const activeProfile =
+    ROUTE_PROFILES[profile];
+
+  const activeExplorer =
+    EXPLORER_MODES[explorerMode];
+
+
   const distanceKm =
     routeInfo
       ? (routeInfo.distance / 1000).toFixed(1)
@@ -308,10 +337,6 @@ export default function MapScreen() {
     routeInfo
       ? Math.round(routeInfo.duration / 60)
       : null;
-
-
-  const activeProfile =
-    ROUTE_PROFILES[profile];
 
 
   return (
@@ -332,6 +357,8 @@ export default function MapScreen() {
       />
 
 
+      {/* WYSZUKIWANIE */}
+
       <SearchBar
         results={results}
         onSearch={handleSearch}
@@ -339,17 +366,7 @@ export default function MapScreen() {
       />
 
 
-      <TouchableOpacity
-        style={styles.locationButton}
-        onPress={centerOnUser}
-      >
-
-        <Text style={styles.locationIcon}>
-          📍
-        </Text>
-
-      </TouchableOpacity>
-
+      {/* PROFIL POJAZDU */}
 
       <TouchableOpacity
         style={styles.profileButton}
@@ -368,6 +385,46 @@ export default function MapScreen() {
 
       </TouchableOpacity>
 
+
+      {/* ODKRYWCA */}
+
+      <TouchableOpacity
+        style={[
+          styles.explorerButton,
+          explorerMode !== 'normal' &&
+            styles.explorerActive
+        ]}
+        onPress={() =>
+          setShowExplorer(true)
+        }
+      >
+
+        <Text style={styles.explorerIcon}>
+          {activeExplorer.icon}
+        </Text>
+
+        <Text style={styles.explorerText}>
+          {activeExplorer.name}
+        </Text>
+
+      </TouchableOpacity>
+
+
+      {/* MOJA LOKALIZACJA */}
+
+      <TouchableOpacity
+        style={styles.locationButton}
+        onPress={centerOnUser}
+      >
+
+        <Text style={styles.locationIcon}>
+          📍
+        </Text>
+
+      </TouchableOpacity>
+
+
+      {/* FOLLOW GPS */}
 
       <TouchableOpacity
         style={[
@@ -392,6 +449,8 @@ export default function MapScreen() {
       </TouchableOpacity>
 
 
+      {/* WYZNACZANIE */}
+
       {loadingRoute && (
 
         <View style={styles.routeLoading}>
@@ -406,6 +465,24 @@ export default function MapScreen() {
 
       )}
 
+
+      {/* KOMUNIKAT */}
+
+      {routeMessage &&
+       !loadingRoute && (
+
+        <View style={styles.routeMessage}>
+
+          <Text style={styles.routeMessageText}>
+            ⚠️ {routeMessage}
+          </Text>
+
+        </View>
+
+      )}
+
+
+      {/* INFORMACJE */}
 
       {routeInfo &&
        !loadingRoute && (
@@ -429,11 +506,28 @@ export default function MapScreen() {
       )}
 
 
+      {/* MENU ODKRYWCY */}
+
+      {showExplorer && (
+
+        <ExplorerMenu
+          activeMode={explorerMode}
+          onSelect={setExplorerMode}
+          onClose={() =>
+            setShowExplorer(false)
+          }
+        />
+
+      )}
+
+
+      {/* MENU PROFILU */}
+
       {showProfiles && (
 
         <RouteProfileMenu
           activeProfile={profile}
-          onSelect={selectProfile}
+          onSelect={setProfile}
           onClose={() =>
             setShowProfiles(false)
           }
@@ -474,6 +568,59 @@ const styles = StyleSheet.create({
     padding: 20
   },
 
+
+  profileButton: {
+    position: 'absolute',
+    left: 12,
+    top: 75,
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 7
+  },
+
+  profileIcon: {
+    fontSize: 20,
+    marginRight: 6
+  },
+
+  profileText: {
+    fontSize: 13,
+    fontWeight: 'bold'
+  },
+
+
+  explorerButton: {
+    position: 'absolute',
+    left: 12,
+    top: 125,
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 7
+  },
+
+  explorerActive: {
+    backgroundColor: '#dcedc8'
+  },
+
+  explorerIcon: {
+    fontSize: 20,
+    marginRight: 6
+  },
+
+  explorerText: {
+    fontSize: 13,
+    fontWeight: 'bold'
+  },
+
+
   locationButton: {
     position: 'absolute',
     right: 12,
@@ -491,28 +638,6 @@ const styles = StyleSheet.create({
     fontSize: 25
   },
 
-  profileButton: {
-    position: 'absolute',
-    left: 12,
-    top: 75,
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 6
-  },
-
-  profileIcon: {
-    fontSize: 20,
-    marginRight: 6
-  },
-
-  profileText: {
-    fontSize: 13,
-    fontWeight: 'bold'
-  },
 
   followButton: {
     position: 'absolute',
@@ -521,7 +646,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 13,
     paddingVertical: 9,
-    elevation: 5
+    elevation: 6
   },
 
   followActive: {
@@ -537,6 +662,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12
   },
+
 
   routeLoading: {
     position: 'absolute',
@@ -556,6 +682,26 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: 'bold'
   },
+
+
+  routeMessage: {
+    position: 'absolute',
+    bottom: 15,
+    left: 15,
+    right: 15,
+    backgroundColor: '#fff3cd',
+    borderRadius: 12,
+    padding: 14,
+    elevation: 7
+  },
+
+  routeMessageText: {
+    color: '#7a5b00',
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: 'bold'
+  },
+
 
   info: {
     position: 'absolute',
