@@ -1,0 +1,129 @@
+# CrossNav - Motorower 50cc
+# Profil przygotowany pod routing OpenStreetMap / BRouter
+
+assign validForMotorcycle = true
+
+assign turnInstructionMode = 1
+
+assign processUnusedTags = true
+
+
+# ==========================================
+# DROGI
+# ==========================================
+
+assign highwayPenalty =
+  switch highway=primary 80
+  switch highway=secondary 50
+  switch highway=tertiary 20
+  switch highway=unclassified 5
+  switch highway=residential 2
+  switch highway=service 3
+  switch highway=track -20
+  switch highway=path 1000
+  switch highway=footway 1000
+  switch highway=pedestrian 1000
+  switch highway=steps 1000
+  switch highway=motorway 100000
+  switch highway=motorway_link 100000
+  0
+
+
+# ==========================================
+# NAWIERZCHNIA
+# ==========================================
+
+assign surfacePenalty =
+  switch surface=asphalt 0
+  switch surface=concrete 5
+  switch surface=compacted -10
+  switch surface=fine_gravel -15
+  switch surface=gravel -15
+  switch surface=ground -20
+  switch surface=dirt -20
+  switch surface=unpaved -15
+  switch surface=mud 100
+  0
+
+
+# ==========================================
+# DOSTĘP
+# ==========================================
+
+assign accessPenalty =
+  switch moped=no 100000
+  switch moped=private 100000
+  switch access=no 100000
+  switch access=private 100000
+  0
+
+
+# ==========================================
+# MOTORROAD
+# ==========================================
+
+assign motorroadPenalty =
+  switch motorroad=yes 100000
+  0
+
+
+# ==========================================
+# KOSZT
+# ==========================================
+
+assign initialcost 0
+
+assign costfactor =
+  1
+  + highwayPenalty
+  + surfacePenalty
+  + accessPenalty
+  + motorroadPenalty
+
+
+# ==========================================
+# CZAS
+# ==========================================
+
+assign maxSpeed =
+  switch highway=motorway 0
+  switch highway=trunk 45
+  switch highway=primary 45
+  switch highway=secondary 45
+  switch highway=tertiary 45
+  switch highway=unclassified 45
+  switch highway=residential 45
+  switch highway=service 30
+  switch highway=track 25
+  45
+
+
+assign speedfactor =
+  1 / maxSpeed
+
+
+# ==========================================
+# NOGOS
+# ==========================================
+
+assign nogos =
+  switch access=no 1
+  switch moped=no 1
+  0
+
+
+# ==========================================
+# FINAL
+# ==========================================
+
+assign priorityclassifier =
+  if costfactor >= 100000 0
+  1
+
+
+assign turncost =
+  0
+
+
+assign routepriority =
+  1
