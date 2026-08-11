@@ -19,6 +19,10 @@ export function analyzeRoad(
   const highway =
     tags.highway;
 
+  const surface =
+    tags.surface ||
+    'unknown';
+
 
   const accessAllowed =
     isAccessAllowed(tags);
@@ -31,91 +35,198 @@ export function analyzeRoad(
     );
 
 
-  let surface =
-    tags.surface ||
-    'unknown';
+  let score = 0;
 
 
-  let score = 50;
-
-
-  // --------------------------------
-  // LEGALNOŚĆ
-  // --------------------------------
+  // =====================================
+  // DROGA NIEDOZWOLONA
+  // =====================================
 
   if (!accessAllowed) {
-    score = -1000;
+
+    return {
+      ...road,
+
+      highway,
+
+      name:
+        tags.name ||
+        getRoadName(highway),
+
+      surface,
+
+      accessAllowed: false,
+
+      typeAllowed,
+
+      score: -1000,
+
+      usable: false,
+
+      tags
+    };
+
   }
 
 
   if (!typeAllowed) {
-    score = -1000;
+
+    return {
+      ...road,
+
+      highway,
+
+      name:
+        tags.name ||
+        getRoadName(highway),
+
+      surface,
+
+      accessAllowed,
+
+      typeAllowed: false,
+
+      score: -1000,
+
+      usable: false,
+
+      tags
+    };
+
   }
 
 
-  // --------------------------------
-  // RODZAJ DROGI
-  // --------------------------------
+  // =====================================
+  // TYP DROGI
+  // =====================================
 
-  if (
-    highway === 'track'
-  ) {
-    score += 25;
+  switch (highway) {
+
+    case 'track':
+      score += 40;
+      break;
+
+    case 'unclassified':
+      score += 20;
+      break;
+
+    case 'service':
+      score += 15;
+      break;
+
+    case 'residential':
+      score += 10;
+      break;
+
+    case 'tertiary':
+      score += 5;
+      break;
+
+    case 'secondary':
+      score += 2;
+      break;
+
+    case 'primary':
+      score -= 5;
+      break;
+
+    case 'trunk':
+      score -= 15;
+      break;
+
   }
 
-  if (
-    highway === 'unclassified'
-  ) {
-    score += 15;
-  }
 
-  if (
-    highway === 'residential'
-  ) {
-    score += 10;
-  }
-
-  if (
-    highway === 'tertiary'
-  ) {
-    score += 5;
-  }
-
-
-  // --------------------------------
+  // =====================================
   // NAWIERZCHNIA
-  // --------------------------------
+  // =====================================
 
-  if (
-    surface === 'gravel' ||
-    surface === 'fine_gravel'
-  ) {
-    score += 20;
+  switch (surface) {
+
+    case 'gravel':
+      score += 35;
+      break;
+
+    case 'fine_gravel':
+      score += 30;
+      break;
+
+    case 'compacted':
+      score += 25;
+      break;
+
+    case 'ground':
+      score += 30;
+      break;
+
+    case 'dirt':
+      score += 30;
+      break;
+
+    case 'earth':
+      score += 30;
+      break;
+
+    case 'sand':
+      score += 15;
+      break;
+
+    case 'grass':
+      score += 10;
+      break;
+
+    case 'mud':
+      score -= 15;
+      break;
+
+    case 'cobblestone':
+      score += 5;
+      break;
+
+    case 'paving_stones':
+      score += 2;
+      break;
+
+    case 'asphalt':
+      score += 0;
+      break;
+
+    case 'concrete':
+      score -= 2;
+      break;
+
   }
 
-  if (
-    surface === 'compacted'
-  ) {
-    score += 15;
-  }
+
+  // =====================================
+  // ODKRYWCA
+  // =====================================
 
   if (
-    surface === 'ground' ||
-    surface === 'dirt'
+    mode === 'explorer'
   ) {
-    score += 20;
-  }
 
-  if (
-    surface === 'mud'
-  ) {
-    score -= 20;
+    if (
+      highway === 'track'
+    ) {
+      score += 30;
+    }
+
+    if (
+      surface === 'gravel' ||
+      surface === 'ground' ||
+      surface === 'dirt' ||
+      surface === 'compacted'
+    ) {
+      score += 25;
+    }
+
   }
 
 
   return {
 
-    id: road.id,
+    ...road,
 
     highway,
 
@@ -131,8 +242,31 @@ export function analyzeRoad(
 
     score,
 
+    usable:
+      score > -500,
+
     tags
 
   };
+
+}
+
+
+export function analyzeRoads(
+  roads,
+  mode = 'motorower'
+) {
+
+  return roads
+    .map(road =>
+      analyzeRoad(
+        road,
+        mode
+      )
+    )
+    .sort(
+      (a, b) =>
+        b.score - a.score
+    );
 
 }

@@ -2,19 +2,31 @@ const OVERPASS_URL =
   'https://overpass-api.de/api/interpreter';
 
 
-function buildQuery(
-  south,
-  west,
-  north,
-  east
-) {
+function buildRouteQuery(routeCoords) {
+
+  const points = routeCoords
+    .filter(point =>
+      Array.isArray(point) &&
+      point.length >= 2
+    )
+    .filter((point, index, array) => {
+      return index % 10 === 0 ||
+        index === array.length - 1;
+    })
+    .map(point => {
+      const lon = point[0];
+      const lat = point[1];
+
+      return `way(around:40,${lat},${lon})["highway"];`;
+    })
+    .join('\n');
+
 
   return `
-[out:json][timeout:25];
+[out:json][timeout:60];
 
 (
-  way["highway"]
-    (${south},${west},${north},${east});
+  ${points}
 );
 
 out tags center;
@@ -22,48 +34,22 @@ out tags center;
 }
 
 
-export async function getRoadsAround(
-  latitude,
-  longitude,
-  radius = 1000
+export async function getRoadsAlongRoute(
+  routeCoords
 ) {
+
+  if (
+    !routeCoords ||
+    routeCoords.length === 0
+  ) {
+    return [];
+  }
+
 
   try {
 
-    // Przybliżone przesunięcie stopni
-    // dla małego obszaru wokół użytkownika.
-
-    const latDelta =
-      radius / 111000;
-
-    const lonDelta =
-      radius /
-      (111000 *
-        Math.cos(
-          latitude * Math.PI / 180
-        )
-      );
-
-    const south =
-      latitude - latDelta;
-
-    const north =
-      latitude + latDelta;
-
-    const west =
-      longitude - lonDelta;
-
-    const east =
-      longitude + lonDelta;
-
-
     const query =
-      buildQuery(
-        south,
-        west,
-        north,
-        east
-      );
+      buildRouteQuery(routeCoords);
 
 
     const response =
@@ -107,33 +93,62 @@ export async function getRoadsAround(
     }
 
 
-    return json.elements
-      .map(element => ({
+    /*
+     * Jeden OSM way może zostać znaleziony
+     * wiele razy, dlatego usuwamy duplikaty.
+     */
 
-        id: element.id,
+    const unique =
+      new Map();
 
-        type: element.type,
 
-        tags: element.tags || {},
+    for (
+      const element
+      of json.elements
+    ) {
 
-        latitude:
-          element.center?.lat ?? null,
+      if (
+        element.type !== 'way'
+      ) {
+        continue;
+      }
 
-        longitude:
-          element.center?.lon ?? null
 
-      }))
-      .filter(
-        road =>
-          road.tags &&
-          road.tags.highway
+      if (
+        !element.tags?.highway
+      ) {
+        continue;
+      }
+
+
+      unique.set(
+        element.id,
+        {
+          id: element.id,
+
+          tags:
+            element.tags || {},
+
+          latitude:
+            element.center?.lat ?? null,
+
+          longitude:
+            element.center?.lon ?? null
+        }
       );
+
+    }
+
+
+    return Array.from(
+      unique.values()
+    );
 
 
   } catch (error) {
 
     console.log(
-      'CrossNav Overpass error:',
+      'CrossNav Overpass route error:',
       error
     );
 
