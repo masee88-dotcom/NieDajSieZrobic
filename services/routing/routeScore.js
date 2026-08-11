@@ -1,31 +1,59 @@
-export function scoreRoute(
-  route,
-  mode = 'normal'
-) {
+export function scoreRoute(route, mode = 'normal') {
 
   if (!route) {
     return -Infinity;
   }
 
-  let score = 0;
+  let score = 100;
 
 
-  // Krótsza trasa = lepiej
-  score -=
+  // =====================================
+  // DŁUGOŚĆ
+  // =====================================
+
+  const distanceKm =
     route.distance / 1000;
 
+  // Każdy kilometr trochę obniża wynik
+  score -= distanceKm * 1.5;
 
-  // Odkrywca może zaakceptować
-  // trochę dłuższą trasę
+
+  // =====================================
+  // CZAS
+  // =====================================
+
+  const durationMin =
+    route.duration / 60;
+
+  score -= durationMin * 0.15;
+
+
+  // =====================================
+  // ODKRYWCA
+  // =====================================
+
   if (mode === 'explorer') {
-    score += 20;
+
+    // Odkrywca może zaakceptować
+    // dłuższą trasę w zamian za
+    // bardziej lokalny charakter.
+
+    score += 10;
+
   }
 
 
-  // Teren może zaakceptować
-  // jeszcze większe wydłużenie
+  // =====================================
+  // TEREN
+  // =====================================
+
   if (mode === 'terrain') {
-    score += 40;
+
+    // Jeszcze większa tolerancja
+    // na wydłużenie trasy.
+
+    score += 20;
+
   }
 
 
@@ -38,16 +66,20 @@ export function chooseBestRoute(
   mode = 'normal'
 ) {
 
-  if (!routes || !routes.length) {
+  if (
+    !routes ||
+    routes.length === 0
+  ) {
     return null;
   }
 
 
-  let best = routes[0];
+  let bestRoute =
+    routes[0];
 
   let bestScore =
     scoreRoute(
-      best,
+      bestRoute,
       mode
     );
 
@@ -58,24 +90,40 @@ export function chooseBestRoute(
     i++
   ) {
 
-    const current =
+    const currentRoute =
+      routes[i];
+
+    const currentScore =
       scoreRoute(
-        routes[i],
+        currentRoute,
         mode
       );
 
 
-    if (current > bestScore) {
+    if (
+      currentScore >
+      bestScore
+    ) {
 
-      best = routes[i];
+      bestRoute =
+        currentRoute;
 
-      bestScore = current;
+      bestScore =
+        currentScore;
 
     }
 
   }
 
 
-  return best;
+  return {
+    ...bestRoute,
+
+    crossNavScore:
+      bestScore,
+
+    crossNavMode:
+      mode
+  };
 
 }

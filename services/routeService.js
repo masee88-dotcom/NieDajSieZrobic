@@ -1,3 +1,8 @@
+import {
+  chooseBestRoute
+} from './routing/routeScore';
+
+
 const OSRM_URL =
   'https://router.project-osrm.org/route/v1/driving';
 
@@ -16,50 +21,83 @@ async function requestRoutes(
     `?overview=full` +
     `&geometries=geojson` +
     `&alternatives=3` +
-    `&steps=true`;
+    `&steps=true` +
+    `&annotations=true`;
 
-  if (options.avoidMotorway) {
-    url += '&exclude=motorway';
+
+  if (
+    options.avoidMotorway
+  ) {
+
+    url +=
+      '&exclude=motorway';
+
   }
+
 
   console.log(
     'CrossNav routing:',
     options.mode || 'normal'
   );
 
-  const response = await fetch(url);
+
+  const response =
+    await fetch(url);
+
 
   if (!response.ok) {
-    throw new Error(`OSRM HTTP ${response.status}`);
+
+    throw new Error(
+      `OSRM HTTP ${response.status}`
+    );
+
   }
 
-  const json = await response.json();
+
+  const json =
+    await response.json();
+
 
   if (
     json.code !== 'Ok' ||
     !json.routes ||
     !json.routes.length
   ) {
+
     return null;
+
   }
 
-  return json.routes.map((route, index) => ({
 
-    id: index,
+  return json.routes.map(
+    (route, index) => ({
 
-    distance: route.distance,
+      id: index,
 
-    duration: route.duration,
+      distance:
+        route.distance,
 
-    geometry:
-      route.geometry.coordinates,
+      duration:
+        route.duration,
 
-    steps:
-      route.legs?.flatMap(
-        leg => leg.steps || []
-      ) || []
+      geometry:
+        route.geometry.coordinates,
 
-  }));
+      steps:
+        route.legs?.flatMap(
+          leg =>
+            leg.steps || []
+        ) || [],
+
+      annotation:
+        route.legs?.flatMap(
+          leg =>
+            leg.annotation || []
+        ) || []
+
+    })
+  );
+
 }
 
 
@@ -74,7 +112,8 @@ export async function getRoute(
   try {
 
     const mode =
-      profile.explorerMode || 'normal';
+      profile.explorerMode ||
+      'normal';
 
 
     const routes =
@@ -93,44 +132,47 @@ export async function getRoute(
       );
 
 
-    if (!routes || !routes.length) {
+    if (
+      !routes ||
+      routes.length === 0
+    ) {
+
+      return null;
+
+    }
+
+
+    const selectedRoute =
+      chooseBestRoute(
+        routes,
+        mode
+      );
+
+
+    if (!selectedRoute) {
       return null;
     }
 
 
-    /*
-     * NORMALNA TRASA
-     *
-     * Bierzemy pierwszą trasę,
-     * którą OSRM uznał za najlepszą.
-     */
-
-    if (mode === 'normal') {
-
-      return routes[0];
-
-    }
-
-
-    /*
-     * ODKRYWCA / TEREN
-     *
-     * Na tym etapie wybieramy
-     * alternatywę z najmniejszym
-     * dystansem spośród dostępnych.
-     *
-     * Kolejny etap dołoży tutaj
-     * prawdziwą ocenę dróg z OSM.
-     */
-
-    const sorted =
-      [...routes].sort(
-        (a, b) =>
-          a.distance - b.distance
-      );
+    console.log(
+      'CrossNav wybrana trasa:',
+      {
+        mode,
+        distance:
+          Math.round(
+            selectedRoute.distance
+          ),
+        duration:
+          Math.round(
+            selectedRoute.duration
+          ),
+        score:
+          selectedRoute.crossNavScore
+      }
+    );
 
 
-    return sorted[0];
+    return selectedRoute;
 
 
   } catch (error) {
