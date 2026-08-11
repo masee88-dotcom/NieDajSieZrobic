@@ -1,3 +1,7 @@
+import { CROSSNAV_PROFILE } from './routing/crossNavProfile';
+import { EXPLORER_PROFILE } from './routing/explorerProfile';
+
+
 async function requestRoute(
   startLat,
   startLon,
@@ -11,15 +15,13 @@ async function requestRoute(
     `${startLon},${startLat};${endLon},${endLat}` +
     `?overview=full&geometries=geojson`;
 
-  // Na razie tylko autostrady możemy bezpiecznie
-  // wykluczyć w publicznym OSRM.
   if (options.avoidMotorway) {
     url += '&exclude=motorway';
   }
 
   console.log(
     'CrossNav routing:',
-    options.explorerMode || 'normal'
+    options.mode || 'normal'
   );
 
   const response = await fetch(url);
@@ -30,10 +32,7 @@ async function requestRoute(
 
   const json = await response.json();
 
-  if (
-    !json.routes ||
-    !json.routes.length
-  ) {
+  if (!json.routes || !json.routes.length) {
     return null;
   }
 
@@ -57,13 +56,15 @@ export async function getRoute(
 
   try {
 
-    const explorer =
+    const explorerMode =
       profile.explorerMode || 'normal';
 
-    /*
-     * NORMALNA
-     */
-    if (explorer === 'normal') {
+
+    // ==================================
+    // NORMALNA TRASA
+    // ==================================
+
+    if (explorerMode === 'normal') {
 
       return await requestRoute(
         startLat,
@@ -71,6 +72,7 @@ export async function getRoute(
         endLat,
         endLon,
         {
+          mode: 'normal',
           avoidMotorway:
             profile.avoidMotorway === true
         }
@@ -78,46 +80,98 @@ export async function getRoute(
     }
 
 
-    /*
-     * ODKRYWCA / TEREN
-     *
-     * Na obecnym silniku zaczynamy od
-     * bezpiecznego wykluczenia autostrad.
-     *
-     * Prawdziwe preferowanie dróg gruntowych
-     * dołożymy po podłączeniu właściwego
-     * silnika routingu.
-     */
+    // ==================================
+    // ODKRYWCA
+    // ==================================
 
-    const explorerRoute =
-      await requestRoute(
+    if (explorerMode === 'explorer') {
+
+      console.log(
+        'CrossNav Odkrywca:',
+        EXPLORER_PROFILE.name
+      );
+
+      const route =
+        await requestRoute(
+          startLat,
+          startLon,
+          endLat,
+          endLon,
+          {
+            mode: 'explorer',
+            avoidMotorway:
+              EXPLORER_PROFILE.avoidMotorway
+          }
+        );
+
+      if (route) {
+        return route;
+      }
+
+      // awaryjnie zwykła trasa
+      return await requestRoute(
         startLat,
         startLon,
         endLat,
         endLon,
         {
-          avoidMotorway: true,
-          explorerMode: explorer
+          mode: 'explorer-fallback'
         }
       );
-
-    if (explorerRoute) {
-      return explorerRoute;
     }
 
 
-    // Awaryjnie zwykła trasa
+    // ==================================
+    // TEREN
+    // ==================================
+
+    if (explorerMode === 'terrain') {
+
+      console.log(
+        'CrossNav Teren:',
+        CROSSNAV_PROFILE.name
+      );
+
+      const route =
+        await requestRoute(
+          startLat,
+          startLon,
+          endLat,
+          endLon,
+          {
+            mode: 'terrain',
+            avoidMotorway: true
+          }
+        );
+
+      if (route) {
+        return route;
+      }
+
+      return await requestRoute(
+        startLat,
+        startLon,
+        endLat,
+        endLon,
+        {
+          mode: 'terrain-fallback'
+        }
+      );
+    }
+
+
+    // ==================================
+    // AWARYJNIE
+    // ==================================
 
     return await requestRoute(
       startLat,
       startLon,
       endLat,
       endLon,
-      {
-        avoidMotorway: false,
-        explorerMode: 'fallback'
-      }
+      {}
     );
+
 
   } catch (e) {
 
