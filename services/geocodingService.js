@@ -1,39 +1,91 @@
-export async function searchPlaces(query) {
-  if (!query || query.trim().length < 3) {
-    return [];
-  }
+const NOMINATIM_URL =
+  'https://nominatim.openstreetmap.org/search';
+
+export async function geocodeDestination(query) {
 
   try {
-    const url =
-      'https://nominatim.openstreetmap.org/search' +
-      '?format=jsonv2' +
-      '&limit=5' +
-      '&countrycodes=pl' +
-      '&q=' +
-      encodeURIComponent(query.trim());
 
-    const response = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'CrossNav/0.4'
-      }
-    });
+    const cleanQuery =
+      query.trim();
 
-    if (!response.ok) {
-      throw new Error('Błąd wyszukiwarki');
+    if (!cleanQuery) {
+      return null;
     }
 
-    const data = await response.json();
+    const url =
+      `${NOMINATIM_URL}` +
+      `?format=json` +
+      `&q=${encodeURIComponent(cleanQuery)}` +
+      `&limit=5` +
+      `&addressdetails=1` +
+      `&accept-language=pl`;
 
-    return data.map(item => ({
-      id: item.place_id,
-      name: item.display_name,
-      latitude: Number(item.lat),
-      longitude: Number(item.lon)
-    }));
+    console.log(
+      'CrossNav szuka:',
+      cleanQuery
+    );
+
+    const response =
+      await fetch(url, {
+        headers: {
+          Accept:
+            'application/json',
+          'User-Agent':
+            'CrossNav/0.1'
+        }
+      });
+
+    if (!response.ok) {
+
+      console.log(
+        'Nominatim HTTP:',
+        response.status
+      );
+
+      return null;
+    }
+
+    const data =
+      await response.json();
+
+    console.log(
+      'Nominatim wyniki:',
+      data.length
+    );
+
+    if (
+      !Array.isArray(data) ||
+      data.length === 0
+    ) {
+      return null;
+    }
+
+    const result = data[0];
+
+    return {
+      latitude:
+        Number(result.lat),
+
+      longitude:
+        Number(result.lon),
+
+      name:
+        result.display_name,
+
+      type:
+        result.type || '',
+
+      address:
+        result.address || {}
+    };
 
   } catch (error) {
-    console.log('Geocoding error:', error);
-    return [];
+
+    console.log(
+      'CrossNav geocoding error:',
+      error
+    );
+
+    return null;
   }
 }

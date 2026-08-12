@@ -1,13 +1,4 @@
-import {
-  chooseBestRoute
-} from './routing/routeScore';
-
-
-const OSRM_URL =
-  'https://router.project-osrm.org/route/v1/driving';
-
-
-async function requestRoutes(
+export async function getRoute(
   startLat,
   startLon,
   endLat,
@@ -15,64 +6,163 @@ async function requestRoutes(
   options = {}
 ) {
 
-  let url =
-    `${OSRM_URL}/` +
-    `${startLon},${startLat};${endLon},${endLat}` +
-    `?overview=full` +
-    `&geometries=geojson` +
-    `&alternatives=3` +
-    `&steps=true` +
-    `&annotations=true`;
+  try {
+
+    const mode =
+      options.mode || 'auto';
 
 
-  if (
-    options.avoidMotorway
-  ) {
-
-    url +=
-      '&exclude=motorway';
-
-  }
+    let params =
+      'overview=full' +
+      '&geometries=geojson' +
+      '&steps=true' +
+      '&annotations=true';
 
 
-  console.log(
-    'CrossNav routing:',
-    options.mode || 'normal'
-  );
+    // ==========================================
+    // TRYB MOTOROWER
+    // ==========================================
+
+    if (mode === 'moped') {
+
+      params +=
+        '&exclude=motorway';
+
+    }
 
 
-  const response =
-    await fetch(url);
+    // ==========================================
+    // TRYB ODKRYWCA
+    // ==========================================
+
+    if (mode === 'explorer') {
+
+      params +=
+        '&exclude=motorway';
+
+    }
 
 
-  if (!response.ok) {
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${startLon},${startLat};` +
+      `${endLon},${endLat}?${params}`;
 
-    throw new Error(
-      `OSRM HTTP ${response.status}`
+
+    console.log(
+      'CrossNav routing mode:',
+      mode
     );
 
-  }
+
+    console.log(
+      'CrossNav routing URL:',
+      url
+    );
 
 
-  const json =
-    await response.json();
+    const response =
+      await fetch(url);
 
 
-  if (
-    json.code !== 'Ok' ||
-    !json.routes ||
-    !json.routes.length
-  ) {
+    if (!response.ok) {
 
-    return null;
+      throw new Error(
+        `OSRM HTTP ${response.status}`
+      );
 
-  }
+    }
 
 
-  return json.routes.map(
-    (route, index) => ({
+    const json =
+      await response.json();
 
-      id: index,
+
+    if (
+      json.code !== 'Ok' ||
+      !json.routes ||
+      !json.routes.length
+    ) {
+
+      return null;
+
+    }
+
+
+    const route =
+      json.routes[0];
+
+
+    const steps = [];
+
+
+    // ==========================================
+    // MANEWRY
+    // ==========================================
+
+    if (
+      Array.isArray(route.legs)
+    ) {
+
+      for (
+        const leg of route.legs
+      ) {
+
+        if (
+          !Array.isArray(
+            leg.steps
+          )
+        ) {
+
+          continue;
+
+        }
+
+
+        for (
+          const step of leg.steps
+        ) {
+
+          const maneuver =
+            step.maneuver || {};
+
+
+          steps.push({
+
+            distance:
+              step.distance || 0,
+
+            duration:
+              step.duration || 0,
+
+            name:
+              step.name || '',
+
+            instruction:
+              getInstruction(
+                maneuver,
+                step.name
+              ),
+
+            type:
+              maneuver.type || '',
+
+            modifier:
+              maneuver.modifier || '',
+
+            location:
+              maneuver.location || null
+
+          });
+
+        }
+
+      }
+
+    }
+
+
+    return {
 
       distance:
         route.distance,
@@ -83,107 +173,140 @@ async function requestRoutes(
       geometry:
         route.geometry.coordinates,
 
-      steps:
-        route.legs?.flatMap(
-          leg =>
-            leg.steps || []
-        ) || [],
+      steps,
 
-      annotation:
-        route.legs?.flatMap(
-          leg =>
-            leg.annotation || []
-        ) || []
+      mode
 
-    })
-  );
-
-}
-
-
-export async function getRoute(
-  startLat,
-  startLon,
-  endLat,
-  endLon,
-  profile = {}
-) {
-
-  try {
-
-    const mode =
-      profile.explorerMode ||
-      'normal';
-
-
-    const routes =
-      await requestRoutes(
-        startLat,
-        startLon,
-        endLat,
-        endLon,
-        {
-          mode,
-
-          avoidMotorway:
-            mode !== 'normal' ||
-            profile.avoidMotorway === true
-        }
-      );
-
-
-    if (
-      !routes ||
-      routes.length === 0
-    ) {
-
-      return null;
-
-    }
-
-
-    const selectedRoute =
-      chooseBestRoute(
-        routes,
-        mode
-      );
-
-
-    if (!selectedRoute) {
-      return null;
-    }
-
-
-    console.log(
-      'CrossNav wybrana trasa:',
-      {
-        mode,
-        distance:
-          Math.round(
-            selectedRoute.distance
-          ),
-        duration:
-          Math.round(
-            selectedRoute.duration
-          ),
-        score:
-          selectedRoute.crossNavScore
-      }
-    );
-
-
-    return selectedRoute;
+    };
 
 
   } catch (error) {
 
     console.log(
-      'CrossNav route error:',
+      'CrossNav routing error:',
       error
     );
 
     return null;
 
   }
+
+}
+
+
+// ==========================================
+// INSTRUKCJE
+// ==========================================
+
+function getInstruction(
+  maneuver,
+  roadName
+) {
+
+  const type =
+    maneuver.type || '';
+
+  const modifier =
+    maneuver.modifier || '';
+
+
+  const road =
+    roadName
+      ? ` na ${roadName}`
+      : '';
+
+
+  if (
+    type === 'depart'
+  ) {
+
+    return 'Ruszaj';
+
+  }
+
+
+  if (
+    type === 'arrive'
+  ) {
+
+    return 'Dojechałeś do celu';
+
+  }
+
+
+  if (
+    type === 'roundabout' ||
+    type === 'rotary'
+  ) {
+
+    return 'Wjedź na rondo';
+
+  }
+
+
+  if (
+    type === 'uturn'
+  ) {
+
+    return 'Zawróć';
+
+  }
+
+
+  if (
+    modifier === 'left'
+  ) {
+
+    return `Skręć w lewo${road}`;
+
+  }
+
+
+  if (
+    modifier === 'right'
+  ) {
+
+    return `Skręć w prawo${road}`;
+
+  }
+
+
+  if (
+    modifier === 'slight left'
+  ) {
+
+    return `Lekko w lewo${road}`;
+
+  }
+
+
+  if (
+    modifier === 'slight right'
+  ) {
+
+    return `Lekko w prawo${road}`;
+
+  }
+
+
+  if (
+    modifier === 'sharp left'
+  ) {
+
+    return `Ostry skręt w lewo${road}`;
+
+  }
+
+
+  if (
+    modifier === 'sharp right'
+  ) {
+
+    return `Ostry skręt w prawo${road}`;
+
+  }
+
+
+  return `Jedź dalej${road}`;
 
 }

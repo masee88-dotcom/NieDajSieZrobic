@@ -2,81 +2,58 @@ import React, { useState } from 'react';
 import {
   View,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   Text,
-  StyleSheet,
-  FlatList
+  StyleSheet
 } from 'react-native';
 
 export default function SearchBar({
-  results,
   onSearch,
-  onSelect
+  searching
 }) {
 
-  const [text, setText] = useState('');
+  const [destination, setDestination] =
+    useState('');
 
-  const search = () => {
-    onSearch(text);
-  };
+  function handleSearch() {
+
+    const value =
+      destination.trim();
+
+    if (!value) {
+      return;
+    }
+
+    onSearch(value);
+  }
 
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.container}>
 
-      <View style={styles.searchRow}>
+      <TextInput
+        value={destination}
+        onChangeText={setDestination}
+        placeholder="Dokąd jedziemy?"
+        placeholderTextColor="#777"
+        style={styles.input}
+        returnKeyType="search"
+        onSubmitEditing={handleSearch}
+      />
 
-        <TextInput
-          style={styles.input}
-          value={text}
-          onChangeText={setText}
-          placeholder="Dokąd jedziemy?"
-          placeholderTextColor="#777"
-          returnKeyType="search"
-          onSubmitEditing={search}
-        />
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={search}
-        >
-          <Text style={styles.buttonText}>🔍</Text>
-        </TouchableOpacity>
-
-      </View>
-
-      {results.length > 0 && (
-
-        <View style={styles.results}>
-
-          <FlatList
-            keyboardShouldPersistTaps="handled"
-            data={results}
-            keyExtractor={item => String(item.id)}
-            renderItem={({ item }) => (
-
-              <TouchableOpacity
-                style={styles.result}
-                onPress={() => {
-                  setText(item.name);
-                  onSelect(item);
-                }}
-              >
-
-                <Text
-                  style={styles.resultText}
-                  numberOfLines={2}
-                >
-                  📍 {item.name}
-                </Text>
-
-              </TouchableOpacity>
-
-            )}
-          />
-
-        </View>
-
-      )}
+      <Pressable
+        onPress={handleSearch}
+        disabled={searching}
+        style={[
+          styles.button,
+          searching && styles.disabled
+        ]}
+      >
+        <Text style={styles.buttonText}>
+          {searching
+            ? 'SZUKAM...'
+            : 'JEDŹ'}
+        </Text>
+      </Pressable>
 
     </View>
   );
@@ -84,61 +61,41 @@ export default function SearchBar({
 
 const styles = StyleSheet.create({
 
-  wrapper: {
+  container: {
     position: 'absolute',
-    top: 12,
-    left: 10,
-    right: 10,
-    zIndex: 20
-  },
-
-  searchRow: {
+    top: 75,
+    left: 15,
+    right: 15,
+    zIndex: 30,
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    elevation: 6,
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    overflow: 'hidden'
+    borderRadius: 14,
+    padding: 5,
+    elevation: 7
   },
 
   input: {
     flex: 1,
-    height: 52,
-    paddingHorizontal: 16,
+    height: 48,
+    paddingHorizontal: 14,
     fontSize: 16,
-    color: '#222'
+    color: '#111'
   },
 
   button: {
-    width: 58,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1976D2'
+    backgroundColor: '#222',
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    justifyContent: 'center'
+  },
+
+  disabled: {
+    opacity: 0.5
   },
 
   buttonText: {
-    fontSize: 22
-  },
-
-  results: {
-    marginTop: 5,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    maxHeight: 240,
-    elevation: 6
-  },
-
-  result: {
-    padding: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee'
-  },
-
-  resultText: {
-    fontSize: 14,
-    color: '#222'
+    color: '#fff',
+    fontWeight: '800'
   }
 
 });
