@@ -1,52 +1,104 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, Alert } from 'react-native';
 import { getSavedPlaces, savePlace } from '../services/savedPlacesService';
+import { geocodeDestination } from '../services/geocodingService';
 
 export default function RouteScreen({ onPlanRoute }) {
   const [destination, setDestination] = useState('');
   const [savedPlaces, setSavedPlaces] = useState([]);
+  const [working, setWorking] = useState(false);
 
   useEffect(() => { getSavedPlaces().then(setSavedPlaces); }, []);
 
-  function plan(value = destination) {
+  async function resolveDestination(value) {
     const text = String(value || '').trim();
-    if (!text || !onPlanRoute) return;
-    onPlanRoute(text);
+    if (!text) return null;
+    const result = await geocodeDestination(text);
+    if (!result) {
+      Alert.alert('CrossNav', 'Nie znaleziono tego adresu.');
+      return null;
+    }
+    return {
+      id: `${result.latitude}:${result.longitude}`,
+      label: result.name || text,
+      latitude: result.latitude,
+      longitude: result.longitude,
+    };
+  }
+
+  async function plan(value = destination) {
+    if (working) return;
+    setWorking(true);
+    try {
+      const place = await resolveDestination(value);
+      if (!place || !onPlanRoute) return;
+      onPlanRoute(place);
+    } catch (e) {
+      console.log('ROUTE PLAN ERROR:', e);
+      Alert.alert('CrossNav', 'Nie udało się znaleźć adresu.');
+    } finally {
+      setWorking(false);
+    }
   }
 
   async function saveCurrentDestination() {
-    const text = destination.trim();
-    if (!text) return;
-    const result = await savePlace({ label: text, latitude: 0.000001, longitude: 0.000001, id: `query:${text.toLowerCase()}` });
-    setSavedPlaces(result);
+    if (working) return;
+    setWorking(true);
+    try {
+      const place = await resolveDestination(destination);
+      if (!place) return;
+      const result = await savePlace(place);
+      setSavedPlaces(result);
+      setDestination(place.label);
+    } catch (e) {
+      console.log('SAVE PLACE ERROR:', e);
+      Alert.alert('CrossNav', 'Nie udało się zapisać adresu.');
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function planSaved(place) {
+    if (!onPlanRoute) return;
+    onPlanRoute(place);
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.icon}>🧭</Text>
       <Text style={styles.title}>Planowanie trasy</Text>
-      <Text style={styles.text}>Wpisz cel, a CrossNav przygotuje trasę na ekranie mapy.</Text>
+      <Text style={styles.text}>Wpisz cel, a CrossNav znajdzie dokładny adres i przygotuje trasę.</Text>
 
-      <TextInput value={destination} onChangeText={setDestination} placeholder="Dokąd jedziemy?" style={styles.input} returnKeyType="search" onSubmitEditing={() => plan()} />
+      <TextInput
+        value={destination}
+        onChangeText={setDestination}
+        placeholder="Dokąd jedziemy?"
+        style={styles.input}
+        returnKeyType="search"
+        onSubmitEditing={() => plan()}
+      />
 
-      <TouchableOpacity style={[styles.button, !destination.trim() && styles.buttonDisabled]} onPress={() => plan()} disabled={!destination.trim()}>
-        <Text style={styles.buttonText}>▶ WYZNACZ TRASĘ</Text>
+      <TouchableOpacity style={[styles.button, (!destination.trim() || working) && styles.buttonDisabled]} onPress={() => plan()} disabled={!destination.trim() || working}>
+        <Text style={styles.buttonText}>{working ? '⏳ SZUKAM...' : '▶ WYZNACZ TRASĘ'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.saveButton, !destination.trim() && styles.buttonDisabled]} onPress={saveCurrentDestination} disabled={!destination.trim()}>
-        <Text style={styles.saveText}>⭐ ZAPISZ ADRES</Text>
+      <TouchableOpacity style={[styles.saveButton, (!destination.trim() || working) && styles.buttonDisabled]} onPress={saveCurrentDestination} disabled={!destination.trim() || working}>
+        <Text style={styles.saveText}>⭐ ZAPISZ DOKŁADNY ADRES</Text>
       </TouchableOpacity>
 
-      {savedPlaces.length > 0 && <Text style={styles.sectionTitle}>⭐ Ostatnio zapisane</Text>}
+      {savedPlaces.length > 0 && <Text style={styles.sectionTitle}>⭐ Zapamiętane adresy</Text>}
       {savedPlaces.map(place => (
-        <TouchableOpacity key={place.id} style={styles.savedRow} onPress={() => plan(place.label)}>
+        <TouchableOpacity key={place.id} style={styles.savedRow} onPress={() => planSaved(place)}>
           <Text style={styles.savedIcon}>📍</Text>
-          <Text style={styles.savedLabel}>{place.label}</Text>
-          <Text style={styles.arrow}>›</Text>
+          <View style={styles.savedTextWrap}>
+            <Text style={styles.savedLabel}>{place.label}</Text>
+            <Text style={styles.coords}>{place.latitude.toFixed(5)}, {place.longitude.toFixed(5)}</Text>
+          </View>
+          <Text style={styles.arrow}>▶</Text>
         </TouchableOpacity>
       ))}
 
-      <Text style={styles.hint}>Kliknij zapisany adres, aby od razu rozpocząć planowanie.</Text>
+      <Text style={styles.hint}>Zapisane adresy mają prawdziwe współrzędne — kliknięcie od razu rozpocznie planowanie.</Text>
     </ScrollView>
   );
 }
@@ -66,7 +118,9 @@ const styles = StyleSheet.create({
   sectionTitle: { width: '100%', fontSize: 19, fontWeight: '900', marginTop: 24, marginBottom: 8 },
   savedRow: { width: '100%', flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f5f5', borderRadius: 14, padding: 13, marginBottom: 8 },
   savedIcon: { fontSize: 22, marginRight: 10 },
-  savedLabel: { flex: 1, fontSize: 16, fontWeight: '700' },
-  arrow: { fontSize: 28, color: '#777' },
+  savedTextWrap: { flex: 1 },
+  savedLabel: { fontSize: 15, fontWeight: '700' },
+  coords: { color: '#777', fontSize: 11, marginTop: 3 },
+  arrow: { fontSize: 18, color: '#777' },
   hint: { textAlign: 'center', fontSize: 14, marginTop: 18, color: '#777' }
 });
