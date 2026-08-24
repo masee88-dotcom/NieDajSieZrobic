@@ -2,51 +2,29 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import MapScreen from './screens/MapScreen';
+import RouteScreen from './screens/RouteScreen';
+import MyScreen from './screens/MyScreen';
+import SettingsScreen from './screens/SettingsScreen';
 import BottomTabs from './components/BottomTabs';
 
-function PlaceholderScreen() {
-  return <View style={styles.placeholder} />;
-}
-
 export default function App() {
-
   const [tab, setTab] = useState('mapa');
 
   return (
     <View style={styles.container}>
-
       <View style={styles.screen}>
-
         {tab === 'mapa' && <MapScreen />}
-        {tab === 'trasa' && <PlaceholderScreen />}
-        {tab === 'moje' && <PlaceholderScreen />}
-        {tab === 'ustawienia' && <PlaceholderScreen />}
-
+        {tab === 'trasa' && <RouteScreen />}
+        {tab === 'moje' && <MyScreen />}
+        {tab === 'ustawienia' && <SettingsScreen />}
       </View>
 
-      <BottomTabs
-        activeTab={tab}
-        onChangeTab={setTab}
-      />
-
+      <BottomTabs activeTab={tab} onChangeTab={setTab} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-
-  container:{
-    flex:1,
-    paddingTop:45
-  },
-
-  screen:{
-    flex:1
-  },
-
-  placeholder:{
-    flex:1,
-    backgroundColor:'#fff'
-  }
-
+  container: { flex: 1, paddingTop: 45, backgroundColor: '#fff' },
+  screen: { flex: 1 }
 });
