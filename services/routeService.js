@@ -12,16 +12,27 @@ export async function getRoute(
       'overview=full' +
       '&geometries=geojson' +
       '&steps=true' +
-      '&annotations=true';
+      '&annotations=true' +
+      '&alternatives=false' +
+      '&continue_straight=false';
 
     if (mode === 'moped') {
       params += '&exclude=motorway';
     }
 
-    // OSRM nie potrafi jeszcze wyznaczać prawdziwych tras terenowych.
-    // ODKRYWCA nadal korzysta z dróg OSRM, ale omija autostrady.
     if (mode === 'explorer') {
       params += '&exclude=motorway';
+    }
+
+    // Przy ponownym wyznaczaniu przekazujemy kierunek jazdy GPS.
+    // Dzięki temu trasa nie próbuje zawracać tylko dlatego, że punkt GPS
+    // znalazł się chwilowo po drugiej stronie drogi.
+    if (
+      Number.isFinite(options.heading) &&
+      options.heading >= 0 &&
+      options.heading <= 360
+    ) {
+      params += `&bearings=${Math.round(options.heading)},`;
     }
 
     const url =
@@ -70,8 +81,8 @@ export async function getRoute(
     }
 
     return {
-      distance: route.distance,
-      duration: route.duration,
+      distance: Number(route.distance) || 0,
+      duration: Number(route.duration) || 0,
       geometry: route.geometry?.coordinates || [],
       steps,
       mode
@@ -98,7 +109,6 @@ function getInstruction(maneuver, roadName) {
   }
 
   if (type === 'uturn') return `Zawróć${road}`;
-
   if (modifier === 'left') return `Skręć w lewo${road}`;
   if (modifier === 'right') return `Skręć w prawo${road}`;
   if (modifier === 'slight left') return `Lekko w lewo${road}`;
