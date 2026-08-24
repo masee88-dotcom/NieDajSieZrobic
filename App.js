@@ -9,12 +9,27 @@ import BottomTabs from './components/BottomTabs';
 
 export default function App() {
   const [tab, setTab] = useState('mapa');
+  const [plannedDestination, setPlannedDestination] = useState(null);
+
+  function planRoute(destination) {
+    setPlannedDestination(destination);
+    setTab('mapa');
+  }
+
+  function clearPlannedDestination() {
+    setPlannedDestination(null);
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.screen}>
-        {tab === 'mapa' && <MapScreen />}
-        {tab === 'trasa' && <RouteScreen />}
+        {tab === 'mapa' && (
+          <MapScreen
+            plannedDestination={plannedDestination}
+            onPlannedDestinationHandled={clearPlannedDestination}
+          />
+        )}
+        {tab === 'trasa' && <RouteScreen onPlanRoute={planRoute} />}
         {tab === 'moje' && <MyScreen />}
         {tab === 'ustawienia' && <SettingsScreen />}
       </View>
