@@ -4,20 +4,13 @@ export function getNextNavigationStep(
   currentIndex = 0
 ) {
   if (!location || !Array.isArray(steps) || !steps.length) {
-    return {
-      index: currentIndex,
-      step: null,
-      distance: null,
-      arrived: false
-    };
+    return { index: currentIndex, step: null, distance: null, arrived: false };
   }
 
   let index = Math.max(0, Math.min(currentIndex, steps.length - 1));
   let step = steps[index];
   let distance = distanceToStep(location, step);
 
-  // Pomijamy startowe / wykonane manewry. Nie przeskakujemy jednak
-  // automatycznie przez ostatni krok, żeby poprawnie wykryć przyjazd.
   while (index < steps.length - 1 && shouldAdvance(step, distance)) {
     index += 1;
     step = steps[index];
@@ -28,51 +21,33 @@ export function getNextNavigationStep(
     (step?.type === 'arrive' || index === steps.length - 1) &&
     distance < 40;
 
-  return {
-    index,
-    step,
-    distance,
-    arrived
-  };
+  return { index, step, distance, arrived };
 }
 
 function shouldAdvance(step, distance) {
-  if (!step || !Number.isFinite(distance)) {
-    return false;
-  }
-
-  if (step.type === 'arrive') {
-    return false;
-  }
-
-  // Start jest tylko punktem początkowym. Jeśli jesteśmy już blisko,
-  // od razu przechodzimy do pierwszego właściwego manewru.
-  if (step.type === 'depart') {
-    return distance < 80;
-  }
-
+  if (!step || !Number.isFinite(distance)) return false;
+  if (step.type === 'arrive') return false;
+  if (step.type === 'depart') return distance < 80;
   return distance < 25;
 }
 
 export function getInstructionDistance(distanceMeters) {
-  if (!Number.isFinite(distanceMeters)) {
-    return '';
-  }
+  if (!Number.isFinite(distanceMeters)) return '';
 
   if (distanceMeters < 1000) {
-    return `${Math.max(10, Math.round(distanceMeters / 10) * 10)} metrów`;
+    const rounded = Math.max(10, Math.round(distanceMeters / 10) * 10);
+    return `${rounded} metrów`;
   }
 
-  return `${(distanceMeters / 1000).toFixed(1).replace('.', ',')} kilometra`;
+  return `${(distanceMeters / 1000).toFixed(1).replace('.', ',')} km`;
+}
+
+export function getDistanceToStep(location, step) {
+  return distanceToStep(location, step);
 }
 
 function distanceToStep(location, step) {
-  if (
-    !location ||
-    !step ||
-    !Array.isArray(step.location) ||
-    step.location.length < 2
-  ) {
+  if (!location || !step || !Array.isArray(step.location) || step.location.length < 2) {
     return Infinity;
   }
 
@@ -91,17 +66,10 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRadians(lat1)) *
-    Math.cos(toRadians(lat2)) *
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
     Math.sin(dLon / 2) ** 2;
 
-  const c =
-    2 *
-    Math.atan2(
-      Math.sqrt(a),
-      Math.sqrt(1 - a)
-    );
-
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
