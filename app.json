@@ -17,12 +17,17 @@
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.crossnav.app"
+      "bundleIdentifier": "com.crossnav.app",
+      "infoPlist": {
+        "UIBackgroundModes": ["location"]
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
