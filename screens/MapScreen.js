@@ -6,7 +6,7 @@ import * as Speech from 'expo-speech';
 import { getMapHtml } from '../utils/mapHtml';
 import { getRoute } from '../services/routeService';
 import { geocodeDestination } from '../services/geocodingService';
-import { getNextNavigationStep, getInstructionDistance } from '../services/navigation/navigationEngine';
+import { getNextNavigationStep, getInstructionDistance, isOffRoute, shouldReroute } from '../services/navigation/navigationEngine';
 import RouteModeButton from '../components/RouteModeButton';
 import SearchBar from '../components/SearchBar';
 
@@ -81,7 +81,8 @@ export default function MapScreen({ plannedDestination, onPlannedDestinationHand
       setDestinationDistance(distanceKm);
       if (distanceKm < 0.03) { finishNavigation(); return; }
     }
-    if (route.geometry?.length && getDistanceFromRoute(location, route.geometry) > 100) { recalculateRoute(); return; }
+    const routeDistance = route.geometry?.length ? getDistanceFromRoute(location, route.geometry) : 0;
+    if (isOffRoute(routeDistance, 60) && shouldReroute(Date.now(), lastRerouteRef.current, 5000)) { recalculateRoute(); return; }
     const result = getNextNavigationStep(location, route.steps || [], stepIndex);
     if (!result.step) return;
     if (result.index !== stepIndex) setStepIndex(result.index);
@@ -95,11 +96,13 @@ export default function MapScreen({ plannedDestination, onPlannedDestinationHand
 
   async function recalculateRoute() {
     if (!location || !route?.destination || reroutingRef.current) return;
-    const now = Date.now(); if (now - lastRerouteRef.current < 10000) return;
-    lastRerouteRef.current = now; reroutingRef.current = true; setRerouting(true);
+    const now = Date.now();
+    if (!shouldReroute(now, lastRerouteRef.current, 5000)) return;
+    lastRerouteRef.current = now;
+    reroutingRef.current = true; setRerouting(true);
     try {
       const destination = route.destination;
-      const result = await getRoute(location.latitude, location.longitude, destination.latitude, destination.longitude, { mode, heading });
+      const result = await getRoute(location.latitude, location.longitude, destination.latitude, destination.longitude, { mode, heading, alternatives: true });
       if (!result) return;
       setRoute({ ...result, destination }); setSelectedRouteIndex(0); setStepIndex(0); setCurrentStep(result.steps?.[0] || null); spokenRef.current = {}; setNavigating(true); Speech.stop(); Speech.speak('Przeliczam trasę', { language: 'pl-PL', rate: 0.95 });
     } catch (e) { console.log('REROUTE ERROR:', e); } finally { reroutingRef.current = false; setRerouting(false); }
