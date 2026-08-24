@@ -1,8 +1,4 @@
-export function getNextNavigationStep(
-  location,
-  steps,
-  currentIndex = 0
-) {
+export function getNextNavigationStep(location, steps, currentIndex = 0) {
   if (!location || !Array.isArray(steps) || !steps.length) {
     return { index: currentIndex, step: null, distance: null, arrived: false };
   }
@@ -44,6 +40,14 @@ export function getInstructionDistance(distanceMeters) {
 
 export function getDistanceToStep(location, step) {
   return distanceToStep(location, step);
+}
+
+export function isOffRoute(distanceMeters, thresholdMeters = 60) {
+  return Number.isFinite(distanceMeters) && distanceMeters > thresholdMeters;
+}
+
+export function shouldReroute(now, lastReroute = 0, minIntervalMs = 5000) {
+  return Number.isFinite(now) && now - lastReroute >= minIntervalMs;
 }
 
 function distanceToStep(location, step) {
