@@ -1,0 +1,26 @@
+name: CrossNav syntax check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -e
+          files=$(find . -type f -name '*.js' \
+            -not -path './node_modules/*' \
+            -not -path './.expo/*')
+          for file in $files; do
+            echo "Checking $file"
+            node --check "$file"
+          done
