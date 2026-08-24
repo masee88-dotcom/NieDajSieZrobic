@@ -14,16 +14,8 @@ export default function RouteScreen({ onPlanRoute }) {
     const text = String(value || '').trim();
     if (!text) return null;
     const result = await geocodeDestination(text);
-    if (!result) {
-      Alert.alert('CrossNav', 'Nie znaleziono tego adresu.');
-      return null;
-    }
-    return {
-      id: `${result.latitude}:${result.longitude}`,
-      label: result.name || text,
-      latitude: result.latitude,
-      longitude: result.longitude,
-    };
+    if (!result) { Alert.alert('CrossNav', 'Nie znaleziono tego adresu.'); return null; }
+    return { id: `${result.latitude}:${result.longitude}`, label: result.name || text, latitude: result.latitude, longitude: result.longitude };
   }
 
   async function plan(value = destination) {
@@ -31,14 +23,11 @@ export default function RouteScreen({ onPlanRoute }) {
     setWorking(true);
     try {
       const place = await resolveDestination(value);
-      if (!place || !onPlanRoute) return;
-      onPlanRoute(place);
+      if (place && onPlanRoute) onPlanRoute(place.label);
     } catch (e) {
       console.log('ROUTE PLAN ERROR:', e);
       Alert.alert('CrossNav', 'Nie udało się znaleźć adresu.');
-    } finally {
-      setWorking(false);
-    }
+    } finally { setWorking(false); }
   }
 
   async function saveCurrentDestination() {
@@ -53,14 +42,11 @@ export default function RouteScreen({ onPlanRoute }) {
     } catch (e) {
       console.log('SAVE PLACE ERROR:', e);
       Alert.alert('CrossNav', 'Nie udało się zapisać adresu.');
-    } finally {
-      setWorking(false);
-    }
+    } finally { setWorking(false); }
   }
 
   function planSaved(place) {
-    if (!onPlanRoute) return;
-    onPlanRoute(place);
+    if (onPlanRoute) onPlanRoute(place.label);
   }
 
   return (
@@ -68,37 +54,22 @@ export default function RouteScreen({ onPlanRoute }) {
       <Text style={styles.icon}>🧭</Text>
       <Text style={styles.title}>Planowanie trasy</Text>
       <Text style={styles.text}>Wpisz cel, a CrossNav znajdzie dokładny adres i przygotuje trasę.</Text>
-
-      <TextInput
-        value={destination}
-        onChangeText={setDestination}
-        placeholder="Dokąd jedziemy?"
-        style={styles.input}
-        returnKeyType="search"
-        onSubmitEditing={() => plan()}
-      />
-
+      <TextInput value={destination} onChangeText={setDestination} placeholder="Dokąd jedziemy?" style={styles.input} returnKeyType="search" onSubmitEditing={() => plan()} />
       <TouchableOpacity style={[styles.button, (!destination.trim() || working) && styles.buttonDisabled]} onPress={() => plan()} disabled={!destination.trim() || working}>
         <Text style={styles.buttonText}>{working ? '⏳ SZUKAM...' : '▶ WYZNACZ TRASĘ'}</Text>
       </TouchableOpacity>
-
       <TouchableOpacity style={[styles.saveButton, (!destination.trim() || working) && styles.buttonDisabled]} onPress={saveCurrentDestination} disabled={!destination.trim() || working}>
         <Text style={styles.saveText}>⭐ ZAPISZ DOKŁADNY ADRES</Text>
       </TouchableOpacity>
-
       {savedPlaces.length > 0 && <Text style={styles.sectionTitle}>⭐ Zapamiętane adresy</Text>}
       {savedPlaces.map(place => (
         <TouchableOpacity key={place.id} style={styles.savedRow} onPress={() => planSaved(place)}>
           <Text style={styles.savedIcon}>📍</Text>
-          <View style={styles.savedTextWrap}>
-            <Text style={styles.savedLabel}>{place.label}</Text>
-            <Text style={styles.coords}>{place.latitude.toFixed(5)}, {place.longitude.toFixed(5)}</Text>
-          </View>
+          <View style={styles.savedTextWrap}><Text style={styles.savedLabel}>{place.label}</Text><Text style={styles.coords}>{place.latitude.toFixed(5)}, {place.longitude.toFixed(5)}</Text></View>
           <Text style={styles.arrow}>▶</Text>
         </TouchableOpacity>
       ))}
-
-      <Text style={styles.hint}>Zapisane adresy mają prawdziwe współrzędne — kliknięcie od razu rozpocznie planowanie.</Text>
+      <Text style={styles.hint}>Adres jest zapisywany razem z prawdziwymi współrzędnymi.</Text>
     </ScrollView>
   );
 }
