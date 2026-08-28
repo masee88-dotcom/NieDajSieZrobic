@@ -11,13 +11,13 @@ const startLat=${latitude},startLon=${longitude},routeData=${routeJson};
 const map=L.map('map',{zoomControl:false}).setView([startLat,startLon],13);L.control.zoom({position:'bottomright'}).addTo(map);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 let routeLines=[],selectedRoute=0;
 function routeLabel(i){return i===0?'🥇 Najszybsza':'🛣️ Alternatywna '+i}
-function formatDuration(sec){const m=Math.max(1,Math.round(sec/60));const h=Math.floor(m/60),r=m%60;return h?`${h} godz. ${r} min`:`${m} min`}
+function formatDuration(sec){const m=Math.max(1,Math.round(sec/60));const h=Math.floor(m/60),r=m%60;return h?(r?(h+' godz. '+r+' min'):(h+' godz.')):(m+' min')}
 function formatKm(m){return (m/1000).toFixed(1)+' km'}
 function selectRoute(i){selectedRoute=i;renderRoutes();if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'ROUTE_SELECTED',index:i}));}
 function renderRoutes(){
  routeLines.forEach(l=>map.removeLayer(l));routeLines=[];
  routeData.forEach((r,i)=>{if(!r.geometry?.length)return;const pts=r.geometry.map(p=>[p[1],p[0]]);const line=L.polyline(pts,{color:i===selectedRoute?'#1976d2':'#777',weight:i===selectedRoute?7:4,opacity:i===selectedRoute?.9:.55}).addTo(map);line.on('click',()=>selectRoute(i));routeLines.push(line)});
- const panel=document.getElementById('routePanel');if(!routeData.length){panel.style.display='none';return}panel.style.display='block';panel.innerHTML=routeData.map((r,i)=>`<div class="route-option ${i===selectedRoute?'active':''}" data-route="${i}">${routeLabel(i)}<div class="route-time">${formatDuration(r.duration)} · ${formatKm(r.distance)}</div><div class="route-meta">Kliknij, aby wybrać tę trasę</div></div>`).join('');panel.querySelectorAll('.route-option').forEach(el=>el.onclick=()=>selectRoute(Number(el.dataset.route)));
+ const panel=document.getElementById('routePanel');if(!routeData.length){panel.style.display='none';return}panel.style.display='block';panel.innerHTML=routeData.map((r,i)=>'<div class="route-option '+(i===selectedRoute?'active':'')+'" data-route="'+i+'">'+routeLabel(i)+'<div class="route-time">'+formatDuration(r.duration)+' · '+formatKm(r.distance)+'</div><div class="route-meta">Kliknij, aby wybrać tę trasę</div></div>').join('');panel.querySelectorAll('.route-option').forEach(el=>el.onclick=()=>selectRoute(Number(el.dataset.route)));
  const all=[];routeData.forEach(r=>(r.geometry||[]).forEach(p=>all.push([p[1],p[0]])));if(all.length)try{map.fitBounds(L.latLngBounds(all),{padding:[60,120],maxZoom:13})}catch(e){}
 }
 renderRoutes();
