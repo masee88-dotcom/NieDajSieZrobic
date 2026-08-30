@@ -7,17 +7,13 @@ import RouteScreen from './screens/RouteScreen';
 import MyScreen from './screens/MyScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import BottomTabs from './components/BottomTabs';
-import { CROSSNAV_BACKGROUND_LOCATION_TASK, startBackgroundLocation, stopBackgroundLocation } from './services/navigation/backgroundLocationTask';
+import { startBackgroundLocation, stopBackgroundLocation } from './services/navigation/backgroundLocationTask';
 
 export default function App() {
   const [tab, setTab] = useState('mapa');
   const [plannedDestination, setPlannedDestination] = useState(null);
 
-  useEffect(() => {
-    return () => {
-      stopBackgroundLocation().catch(() => {});
-    };
-  }, []);
+  useEffect(() => () => { stopBackgroundLocation().catch(() => {}); }, []);
 
   async function planRoute(destination) {
     setPlannedDestination(destination);
@@ -25,24 +21,13 @@ export default function App() {
     try {
       const foreground = await Location.getForegroundPermissionsAsync();
       if (foreground.status === 'granted') await startBackgroundLocation();
-    } catch (e) {
-      console.log('BACKGROUND LOCATION START ERROR:', e);
-    }
-  }
-
-  function clearPlannedDestination() {
-    setPlannedDestination(null);
+    } catch (e) { console.log('BACKGROUND LOCATION START ERROR:', e); }
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.screen}>
-        {tab === 'mapa' && (
-          <MapScreen
-            plannedDestination={plannedDestination}
-            onPlannedDestinationHandled={clearPlannedDestination}
-          />
-        )}
+        {tab === 'mapa' && <MapScreen plannedDestination={plannedDestination} onPlannedDestinationHandled={() => setPlannedDestination(null)} />}
         {tab === 'trasa' && <RouteScreen onPlanRoute={planRoute} />}
         {tab === 'moje' && <MyScreen />}
         {tab === 'ustawienia' && <SettingsScreen />}
@@ -52,7 +37,4 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 45, backgroundColor: '#fff' },
-  screen: { flex: 1 }
-});
+const styles = StyleSheet.create({ container: { flex: 1, paddingTop: 45, backgroundColor: '#fff' }, screen: { flex: 1 } });
