@@ -23,7 +23,7 @@ export default function RouteScreen({ onPlanRoute }) {
     setWorking(true);
     try {
       const place = await resolveDestination(value);
-      if (place && onPlanRoute) onPlanRoute(place.label);
+      if (place && onPlanRoute) onPlanRoute(place);
     } catch (e) {
       console.log('ROUTE PLAN ERROR:', e);
       Alert.alert('CrossNav', 'Nie udało się znaleźć adresu.');
@@ -46,7 +46,7 @@ export default function RouteScreen({ onPlanRoute }) {
   }
 
   function planSaved(place) {
-    if (onPlanRoute) onPlanRoute(place.label);
+    if (onPlanRoute) onPlanRoute(place);
   }
 
   return (
